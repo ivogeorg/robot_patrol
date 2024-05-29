@@ -30,30 +30,32 @@ void LaserScanSubscriber::laser_scan_callback(
                 msg->angle_increment);
     RCLCPP_INFO(this->get_logger(), "range_min = %f", msg->range_min);
     RCLCPP_INFO(this->get_logger(), "range_max = %f", msg->range_max);
-    RCLCPP_INFO(this->get_logger(), "ranges.size() = %ld", msg->ranges.size());
+    RCLCPP_INFO(this->get_logger(), "ranges.size() = %ld\n", msg->ranges.size());
 
-    // RCLCPP_INFO(this->get_logger(), "ranges[0] = %f", msg->ranges[0]);
-    // RCLCPP_INFO(this->get_logger(), "ranges[90] = %f", msg->ranges[90]);
-    // RCLCPP_INFO(this->get_logger(), "ranges[180] = %f", msg->ranges[180]);
-    // RCLCPP_INFO(this->get_logger(), "ranges[270] = %f", msg->ranges[270]);
-    // RCLCPP_INFO(this->get_logger(), "ranges[359] = %f", msg->ranges[359]);
+    RCLCPP_INFO(this->get_logger(), "ranges[0] = %f", msg->ranges[0]);
+    RCLCPP_INFO(this->get_logger(), "ranges[164] = %f", msg->ranges[164]);
+    RCLCPP_INFO(this->get_logger(), "ranges[329] = %f", msg->ranges[329]);
+    RCLCPP_INFO(this->get_logger(), "ranges[493] = %f", msg->ranges[493]);
+    RCLCPP_INFO(this->get_logger(), "ranges[659] = %f", msg->ranges[659]);
 
     /**
         This shows that the turtlebot3 laser scan is parameterized thus:
-                  0 (359)
+                 329
               _________
             |||   ^   |||
             |||  fwd  |||
-         90   |l     r|   270
+        493   |l     r|   164
               |       |
               |___b___|
-                 180
+                  0 (659)
         These are the indices of the ranges array:
-          0 - forward (also approximately 359)
-         90 - left
-        180 - backward
-        270 - right
+        329 - forward (also approximately 359)
+        493 - left
+          0 - backward
+        164 - right
     */
+
+
     // print only once
     printed_scan_info_ = true;
   }
