@@ -36,11 +36,14 @@ private:
   // 15 deg is 27.5 ~ 28 angle increments
   // 25 deg is 45.8 ~ 46 angle increments
   // right is 164
-  const int RIGHT_FROM = 164 - 28, RIGHT_TO = 164 + 26;  // ~30 deg angle 
+  const int RIGHT = 164;
+  const int RIGHT_FROM = RIGHT - 28, RIGHT_TO = RIGHT + 28;  // ~30 deg angle 
   // left is 493
-  const int LEFT_FROM = 493 - 28, LEFT_TO = 493 + 28;  // ~30 deg angle
+  const int LEFT = 493;
+  const int LEFT_FROM = LEFT - 28, LEFT_TO = LEFT + 28;  // ~30 deg angle
   // forward is 329
-  const int FRONT_FROM = 329 - 46, FRONT_TO = 329 + 46; // ~50 deg angle
+  const int FRONT = 329;
+  const int FRONT_FROM = FRONT - 46, FRONT_TO = FRONT + 46; // ~50 deg angle
 
   const double VELOCITY_INCREMENT = 0.1;
   const double ANGULAR_BASE = 0.5;
@@ -90,10 +93,8 @@ void Patrol::velocity_callback() {
 void Patrol::laser_scan_callback(
     const sensor_msgs::msg::LaserScan::SharedPtr msg) {
   laser_scan_data_ = *msg;
-  // ranges[0] is to the right
-  // ranges[719] is to the left
   RCLCPP_DEBUG(this->get_logger(), "Distance to the left is %f",
-               laser_scan_data_.ranges[719]);
+               laser_scan_data_.ranges[LEFT]);
 }
 
 bool Patrol::obstacle_in_range(int from, int to, double dist) {
