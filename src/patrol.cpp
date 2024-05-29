@@ -19,7 +19,7 @@ public:
     publisher_ =
         this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
     timer_ = this->create_wall_timer(
-        500ms, std::bind(&Patrol::velocity_callback, this));
+        100ms, std::bind(&Patrol::velocity_callback, this));
     subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
         "scan", 10, std::bind(&Patrol::laser_scan_callback, this, _1));
   }
@@ -31,14 +31,21 @@ private:
   sensor_msgs::msg::LaserScan laser_scan_data_;
   geometry_msgs::msg::Twist vel_cmd_msg_;
 
-  // angle ranges
-  const int RIGHT_FROM = 0, RIGHT_TO = 89;
-  const int LEFT_FROM = 630, LEFT_TO = 719;
-  const int FRONT_FROM = 220, FRONT_TO = 499; // wider by 50 degrees
+  // angle ranges (660 rays covering 360 degrees or 2*pi radians)
+  // 1 deg is about 1.83 angle increments
+  // 15 deg is 27.5 ~ 28 angle increments
+  // 25 deg is 45.8 ~ 46 angle increments
+  // right is 164
+  const int RIGHT_FROM = 164 - 28, RIGHT_TO = 164 + 26;  // ~30 deg angle 
+  // left is 493
+  const int LEFT_FROM = 493 - 28, LEFT_TO = 493 + 28;  // ~30 deg angle
+  // forward is 329
+  const int FRONT_FROM = 329 - 46, FRONT_TO = 329 + 46; // ~50 deg angle
 
   const double VELOCITY_INCREMENT = 0.1;
   const double ANGULAR_BASE = 0.5;
-  const double LINEAR_BASE = 0.8;
+  const double LINEAR_BASE = 0.2;
+  const double OBSTACLE_PROXIMITY = 0.35;
 
   // publisher
   void velocity_callback();
@@ -53,15 +60,15 @@ private:
 
 // publisher
 void Patrol::velocity_callback() {
-  if (!obstacle_in_range(FRONT_FROM, FRONT_TO, 1.0)) {
-    vel_cmd_msg_.linear.x = 0.8;
+  if (!obstacle_in_range(FRONT_FROM, FRONT_TO, OBSTACLE_PROXIMITY)) {
+    vel_cmd_msg_.linear.x = LINEAR_BASE;
     vel_cmd_msg_.angular.z = 0.0;
   } else {
     // stop forward motion
     vel_cmd_msg_.linear.x = 0.0;
 
-    bool obstacle_left = obstacle_in_range(LEFT_FROM, LEFT_TO, 1.0);
-    bool obstacle_right = obstacle_in_range(RIGHT_FROM, RIGHT_TO, 1.0);
+    bool obstacle_left = obstacle_in_range(LEFT_FROM, LEFT_TO, OBSTACLE_PROXIMITY);
+    bool obstacle_right = obstacle_in_range(RIGHT_FROM, RIGHT_TO, OBSTACLE_PROXIMITY);
     bool turning_left = vel_cmd_msg_.angular.z > 0.0;
     bool turning_right = vel_cmd_msg_.angular.z < 0.0;
 
