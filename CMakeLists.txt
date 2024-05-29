@@ -16,12 +16,29 @@ if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
   # comment the line when a copyright and license is added to all source files
-  set(ament_cmake_copyright_FOUND TRUE)
+#   set(ament_cmake_copyright_FOUND TRUE)
   # the following line skips cpplint (only works in a git repo)
   # comment the line when this package is in a git repo and when
   # a copyright and license is added to all source files
-  set(ament_cmake_cpplint_FOUND TRUE)
+#   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+add_executable(${PROJECT_NAME}_node src/patrol.cpp)
+ament_target_dependencies(${PROJECT_NAME}_node rclcpp geometry_msgs sensor_msgs)
+
+add_executable(laser_scan_subscriber_node src/laser_scan_subscriber.cpp)
+ament_target_dependencies(laser_scan_subscriber_node rclcpp sensor_msgs)
+
+install(TARGETS
+	${PROJECT_NAME}_node
+    laser_scan_subscriber_node
+	DESTINATION lib/${PROJECT_NAME}
+)
+
+install(DIRECTORY
+	launch
+	DESTINATION share/${PROJECT_NAME}
+)
 
 ament_package()
