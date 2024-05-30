@@ -11,6 +11,7 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -25,7 +26,7 @@ if(BUILD_TESTING)
 endif()
 
 add_executable(${PROJECT_NAME}_node src/patrol.cpp)
-ament_target_dependencies(${PROJECT_NAME}_node rclcpp geometry_msgs sensor_msgs)
+ament_target_dependencies(${PROJECT_NAME}_node rclcpp geometry_msgs sensor_msgs nav_msgs)
 
 add_executable(laser_scan_subscriber_node src/laser_scan_subscriber.cpp)
 ament_target_dependencies(laser_scan_subscriber_node rclcpp sensor_msgs)
