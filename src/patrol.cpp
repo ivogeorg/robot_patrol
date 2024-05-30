@@ -28,8 +28,8 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   sensor_msgs::msg::LaserScan laser_scan_data_;
   geometry_msgs::msg::Twist vel_cmd_msg_;
-  float direction_; // angle in radians
-  float yaw_;       // current orientation
+  double direction_; // angle in radians
+  double yaw_;       // current orientation
 
   // Laser scanner parametrization
 
@@ -66,7 +66,8 @@ private:
 
   // utility functions
   bool obstacle_in_range(int from, int to, double dist);
-  float find_safest_direction();
+  double find_safest_direction();
+  void rotate(double from_angle, double to_angle);
   double yaw_from_quaternion(double x, double y, double z, double w);
 };
 
@@ -86,6 +87,13 @@ Patrol::Patrol() : Node("robot_patrol_node") {
 
 // publisher
 void Patrol::velocity_callback() {
+  // TODO:
+  // Forward until obstacle.
+  // Stop when obstacle.
+  // Find safest direction.
+  // Rotate.
+  // repeat...
+
   if (!obstacle_in_range(FRONT_FROM, FRONT_TO, OBSTACLE_PROXIMITY)) {
     vel_cmd_msg_.linear.x = LINEAR_BASE;
     vel_cmd_msg_.angular.z = 0.0;
@@ -147,16 +155,28 @@ bool Patrol::obstacle_in_range(int from, int to, double dist) {
   return is_obstacle;
 }
 
-// TODO: this should also be a range
-//       can we fit a gaussian?
-float Patrol::find_safest_direction() {
-  float dir = 0; // angle in rads
+// TODO: shouldn't it be void?
+double Patrol::find_safest_direction() {
+  double dir = 0; // angle in rads
 
   // TODO
-  // 1. Use laser_scan_data_ to find the longest range +/- pi/2 of fwd.
-  // 2.
+  // 1. Select the ray indices for the 5 peak ranges.
+  //    (What if they are next to each other?)
+  // 2. For each index, compute the sum or avg of the 
+  //    neighboring ray indices.
+  //    (Parametrize how many on each side!)
+  // 3. Pick the index with the highest sum/avg and
+  //    calculate its ANGLE.
+  // 4. Set this angle to direction_.
 
   return dir;
+}
+
+void Patrol::rotate(double from_angle, double to_angle) {
+    // TODO: port from checkpoint2 branch of my_rb1_robot
+    // NOTE: use direction_ as goal yaw and to set the
+    //       angular velocity
+
 }
 
 int main(int argc, char *argv[]) {
