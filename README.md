@@ -40,9 +40,12 @@ A turtlebot3 patrolling the simulated and real robot pen/polygon. Patrolling mea
 
 #### Requirements & todo
 
-1. Port (from ROS 1 to ROS 2) the [`_rotate`](https://github.com/ivogeorg/my_rb1_robot/blob/ece261459d47d661b5d7ccb5789d8b71e6de308c/my_rb1_ros/src/rotate_service.cpp#L96) code into a private function. Call it `rotate_`.  
-2. Update `rotate_` to work with radians, not degrees.  
+1. Port (from ROS 1 to ROS 2) and adapt the [`_rotate`](https://github.com/ivogeorg/my_rb1_robot/blob/ece261459d47d661b5d7ccb5789d8b71e6de308c/my_rb1_ros/src/rotate_service.cpp#L96) code into a private function. Call it `rotate_`.  
+2. Update `rotate_` to work with radians only, not convert from degrees.  
 3. Utilize the **required** `direction_` private variable, the angle between the current forward direction of the robot and the direction of the longest range from the scanner, within the +/- pi/2 radians relative to the forward direction, in two ways:
-   1. This will be the argument of `rotate_`, explicitly or implicitly.
-   2. This will determine the angular velocity to set in `vel_cmd_msg_`.    
+   1. This will be the argument to `rotate_`, explicitly or implicitly. This requires some consideration, because a single farthest range that may fall between two obstacles along the way may not be the safest direction to head to. Instead:
+      1. Short list the 5 longest ranges, by index.
+      2. For each one get the average of the closest `r` ranges on both sides of it, `+r/2` and `-r/2` (make sure `r = 2*p`, for some `p`).
+      3. Pick the ray index with the highest average. Think of this as a width affordance for the robot heading in a new direction.
+   3. This will determine the angular velocity to set in `vel_cmd_msg_`.    
 5. Subscribe to `/odom` and get the _current yaw_ as a starting point of the rotation. The odometry callback will be just one line.  
