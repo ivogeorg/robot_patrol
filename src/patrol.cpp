@@ -9,8 +9,11 @@
 #include "rclcpp/logging.hpp"
 #include "rclcpp/rclcpp.hpp"
 
+#include <algorithm> // for std::sort
 #include <chrono>
-#include <cmath> // for std::isinf(), for atan2(y, x)
+#include <cmath>   // for std::isinf(), for atan2(y, x)
+#include <utility> // for std::pair
+#include <vector>
 
 using namespace std::chrono_literals; // for s, ms, ns, etc.
 using std::placeholders::_1;          // for callback parameter placeholder in
@@ -31,8 +34,9 @@ private:
   double direction_; // angle in radians
   double yaw_;       // current orientation
 
-  // Laser scanner parametrization
+  // Laser scanner parametrization and smoothing
 
+  // The following is done so as to work directly with ranges[] indices
   // Angle ranges contain 660 rays covering 360 degrees or 2*pi radians
   // 1 deg is about 1.83 angle increments
   // 15 deg is 27.5 ~ 28 angle increments
@@ -48,10 +52,19 @@ private:
   const int FRONT = 329;
   const int FRONT_FROM = FRONT - 46, FRONT_TO = FRONT + 46; // ~50 deg angle
 
-  // Range of the center of next direction
+  // The following is done to avoid "narrow" width affordances for the robot
+  // A NUM_PEAKS longest ranges will be compared by the SUM or NUM_NEIGHBORS
+  // neighboring ranges on both sides. This will approximate fitting a normal
+  // distribution and allow picking a direction that is most likely to be
+  // "wide" enough for the robot to move in.
+  const int NUM_PEAKS = 5;
+  const int NUM_NEIGHBORS = 5;
+
+  // Range of the center of next direction (+/- pi radians) REQUIREMENT
   const int DIR_FROM = LEFT;
   const int DIR_TO = RIGHT;
 
+  // Motion parameters
   const double VELOCITY_INCREMENT = 0.1;
   const double ANGULAR_BASE = 0.5;
   const double LINEAR_BASE = 0.1; // REQUIREMENT
@@ -66,9 +79,9 @@ private:
 
   // utility functions
   bool obstacle_in_range(int from, int to, double dist);
-  double find_safest_direction();
-  void rotate(double from_angle, double to_angle);
   double yaw_from_quaternion(double x, double y, double z, double w);
+  void find_safest_direction();
+  void turn_safest_direction();
 };
 
 // constructors
@@ -91,7 +104,7 @@ void Patrol::velocity_callback() {
   // Forward until obstacle.
   // Stop when obstacle.
   // Find safest direction.
-  // Rotate.
+  // Rotate. Wait until done!!! (if turning, don't change the Twist msg)
   // repeat...
 
   if (!obstacle_in_range(FRONT_FROM, FRONT_TO, OBSTACLE_PROXIMITY)) {
@@ -108,8 +121,9 @@ void Patrol::velocity_callback() {
     bool turning_left = vel_cmd_msg_.angular.z > 0.0;
     bool turning_right = vel_cmd_msg_.angular.z < 0.0;
 
-    // this one is robus but for a corner case of going straight very near a
-    // wall can correct with some logic to anticipate obstacles in front
+    // This algorithm is robust but for a corner case of going straight very
+    // near a wall. Can correct with some logic to anticipate obstacles in
+    // front.
     if (obstacle_left && turning_right) {
       vel_cmd_msg_.angular.z += -VELOCITY_INCREMENT;
     } else if (obstacle_right && turning_left) {
@@ -155,28 +169,49 @@ bool Patrol::obstacle_in_range(int from, int to, double dist) {
   return is_obstacle;
 }
 
-// TODO: shouldn't it be void?
-double Patrol::find_safest_direction() {
-  double dir = 0; // angle in rads
+void Patrol::find_safest_direction() {
+  // put ranges and indices into a vector for sorting
+  std::vector<std::pair<int, float>> v_indexed_ranges;
+  for (int i = 0; i < static_cast<int>(laser_scan_data_.ranges.size()); ++i)
+    // exclude all lower than RIGHT and higher than LEFT (REQUIREMENT)
+    if (i >= RIGHT && i <= LEFT)
+      v_indexed_ranges.push_back(
+          std::make_pair(i, laser_scan_data_.ranges[i]));
 
-  // TODO
-  // 1. Select the ray indices for the 5 peak ranges.
-  //    (What if they are next to each other?)
-  // 2. For each index, compute the sum or avg of the 
-  //    neighboring ray indices.
-  //    (Parametrize how many on each side!)
-  // 3. Pick the index with the highest sum/avg and
-  //    calculate its ANGLE.
-  // 4. Set this angle to direction_.
+  // sort by ranges in descending order
+  std::sort(v_indexed_ranges.begin(), v_indexed_ranges.end(),
+            [](const std::pair<int, float> &a, const std::pair<int, float> &b) {
+              return a.second > b.second;
+            });
 
-  return dir;
+  // for the top NUM_PEAKS, sum up their neighboring ranges
+  // (by NUM_NEIGHBORS) and keep track of the index with the
+  // largest sum
+  float highest_sum = 0, sum;
+  int highest_sum_index = -1, peak_index;
+  for (int i = 0; i < NUM_PEAKS; ++i) {
+    peak_index = v_indexed_ranges[i].first;
+    for (int j = peak_index - NUM_NEIGHBORS; j < peak_index; ++j)
+      sum += laser_scan_data_.ranges[j];
+    for (int j = peak_index + 1; j <= peak_index + NUM_NEIGHBORS; ++j)
+      sum += laser_scan_data_.ranges[j];
+    if (sum > highest_sum) {
+      highest_sum = sum;
+      highest_sum_index = peak_index;
+    }
+    sum = 0;
+  }
+
+  // for the highest_sum_index, calculate the angle
+  // negative CW, positive CCW
+  // angle_increment is in radians
+  direction_ = (highest_sum_index - FRONT) * laser_scan_data_.angle_increment;
 }
 
-void Patrol::rotate(double from_angle, double to_angle) {
-    // TODO: port from checkpoint2 branch of my_rb1_robot
-    // NOTE: use direction_ as goal yaw and to set the
-    //       angular velocity
-
+void Patrol::turn_safest_direction() {
+  // TODO: port from checkpoint2 branch of my_rb1_robot
+  // NOTE: use direction_ as goal yaw and to set the
+  //       angular velocity
 }
 
 int main(int argc, char *argv[]) {
