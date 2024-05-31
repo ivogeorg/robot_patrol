@@ -69,6 +69,9 @@ private:
   const double ANGULAR_BASE = 0.5;
   const double LINEAR_BASE = 0.1; // REQUIREMENT
   const double OBSTACLE_PROXIMITY = 0.35;
+  const double PI = 3.14159265359;
+  const double ANGULAR_TOLERANCE_DEG = 1.5;
+  const double ANGULAR_TOLERANCE = ANGULAR_TOLERANCE_DEG * PI / 180.0;
 
   // publisher
   void velocity_callback();
@@ -82,6 +85,7 @@ private:
   double yaw_from_quaternion(double x, double y, double z, double w);
   void find_safest_direction();
   void turn_safest_direction();
+  double normalize_angle(double angle);
 };
 
 // constructors
@@ -175,8 +179,7 @@ void Patrol::find_safest_direction() {
   for (int i = 0; i < static_cast<int>(laser_scan_data_.ranges.size()); ++i)
     // exclude all lower than RIGHT and higher than LEFT (REQUIREMENT)
     if (i >= RIGHT && i <= LEFT)
-      v_indexed_ranges.push_back(
-          std::make_pair(i, laser_scan_data_.ranges[i]));
+      v_indexed_ranges.push_back(std::make_pair(i, laser_scan_data_.ranges[i]));
 
   // sort by ranges in descending order
   std::sort(v_indexed_ranges.begin(), v_indexed_ranges.end(),
@@ -208,10 +211,64 @@ void Patrol::find_safest_direction() {
   direction_ = (highest_sum_index - FRONT) * laser_scan_data_.angle_increment;
 }
 
+// TODO: Can this not block but pass through, only starting the rotation
+//       and stopping it when it completes?
+//       Slightly different logic...
 void Patrol::turn_safest_direction() {
-  // TODO: port from checkpoint2 branch of my_rb1_robot
+  // TODO: port _rotate from checkpoint2 branch of my_rb1_robot
   // NOTE: use direction_ as goal yaw and to set the
   //       angular velocity
+  // NOTE: stop the robot before exiting, the caller will set the
+  //       forward velocity
+
+  // TODO: how does this loop interact with the 10 Hz callback
+  //       which is the caller?
+
+  double last_angle double turn_angle = 0.0;
+  double goal_angle = direction_;
+
+  vel_cmd_msg_.linear.x = 0.0;
+  if (goal_angle > 0)
+    vel_cmd_msg_.angular.z = goal_angle / 2.0;
+  else
+    vel_cmd_msg_.angular.z = -goal_angle / 2.0;
+
+  if (goal_angle > 0) {
+    while (rclcpp::ok() &&
+           (abs(turn_angle + ANGULAR_TOLERANCE) < abs(goal_angle))) {
+      publisher_.pub(vel_cmd_msg_);
+      // what about sleep()?
+
+      double temp_yaw = yaw_; // yaw_ is changing
+      double delta_angle = normalize_angle(temp_yaw - last_angle);
+
+      turn_angle += delta_angle;
+      last_angle = temp_yaw;
+    }
+  } else {
+    while (rclcpp::ok() &&
+           (abs(turn_angle - ANGULAR_TOLERANCE) < abs(goal_angle))) {
+      publisher_.pub(vel_cmd_msg_);
+      // what about sleep()?
+
+      double temp_yaw = yaw_; // yaw_ is changing
+      double delta_angle = normalize_angle(temp_yaw - last_angle);
+
+      turn_angle += delta_angle;
+      last_angle = temp_yaw;
+  }
+
+  vel_cmd_msg_.angular.z = 0.0;
+  publisher_.publish(vel_cmd_msg_);
+}
+
+double Patrol::normalize_angle(double angle) {
+    double res = angle;
+    while (res > PI)
+        res -= 2.0 * PI;
+    while (res < -PI)
+        res += 2.0 * PI;
+    return res;
 }
 
 int main(int argc, char *argv[]) {
