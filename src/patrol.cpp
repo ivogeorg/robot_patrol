@@ -33,6 +33,7 @@ private:
   geometry_msgs::msg::Twist vel_cmd_msg_;
   double direction_; // angle in radians
   double yaw_;       // current orientation
+  bool turning_;     // if turning_ don't publish cmd_vel
 
   // Laser scanner parametrization and smoothing
 
@@ -72,6 +73,7 @@ private:
   const double PI = 3.14159265359;
   const double ANGULAR_TOLERANCE_DEG = 1.5;
   const double ANGULAR_TOLERANCE = ANGULAR_TOLERANCE_DEG * PI / 180.0;
+  const double FLOAT_COMPARISON_TOLERANCE = 1e-9;
 
   // publisher
   void velocity_callback();
@@ -84,7 +86,7 @@ private:
   bool obstacle_in_range(int from, int to, double dist);
   double yaw_from_quaternion(double x, double y, double z, double w);
   void find_safest_direction();
-  void turn_safest_direction();
+  bool turn_safest_direction();
   double normalize_angle(double angle);
 };
 
@@ -98,45 +100,35 @@ Patrol::Patrol() : Node("robot_patrol_node") {
       "scan", 10, std::bind(&Patrol::laser_scan_callback, this, _1));
   odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
       "odom", 10, std::bind(&Patrol::odometry_callback, this, _1));
+  turning_ = false;
 }
 
 // callbacks
 
 // publisher
 void Patrol::velocity_callback() {
-  // TODO:
-  // Forward until obstacle.
-  // Stop when obstacle.
-  // Find safest direction.
-  // Rotate. Wait until done!!! (if turning, don't change the Twist msg)
-  // repeat...
-
   if (!obstacle_in_range(FRONT_FROM, FRONT_TO, OBSTACLE_PROXIMITY)) {
+    // clear in front => go forward
     vel_cmd_msg_.linear.x = LINEAR_BASE;
     vel_cmd_msg_.angular.z = 0.0;
+  } else if (abs(vel_cmd_msg_.linear.x - LINEAR_BASE) <
+             FLOAT_COMPARISON_TOLERANCE) {
+    // robot stopped => changing direction
+
+    // if not already turning, find safest direction
+    if (!turning_)
+      find_safest_direction();
+
+    // if not already turning, start
+    // if turning but not done, continue
+    // if turning and need to stop, stop and set not turning
+    turning_ = turn_safest_direction();
   } else {
-    // stop forward motion
+    // stop robot
     vel_cmd_msg_.linear.x = 0.0;
-
-    bool obstacle_left =
-        obstacle_in_range(LEFT_FROM, LEFT_TO, OBSTACLE_PROXIMITY);
-    bool obstacle_right =
-        obstacle_in_range(RIGHT_FROM, RIGHT_TO, OBSTACLE_PROXIMITY);
-    bool turning_left = vel_cmd_msg_.angular.z > 0.0;
-    bool turning_right = vel_cmd_msg_.angular.z < 0.0;
-
-    // This algorithm is robust but for a corner case of going straight very
-    // near a wall. Can correct with some logic to anticipate obstacles in
-    // front.
-    if (obstacle_left && turning_right) {
-      vel_cmd_msg_.angular.z += -VELOCITY_INCREMENT;
-    } else if (obstacle_right && turning_left) {
-      vel_cmd_msg_.angular.z += VELOCITY_INCREMENT;
-    } else {
-      vel_cmd_msg_.angular.z = 0.5;
-    }
   }
 
+  // single point of publishing
   publisher_->publish(vel_cmd_msg_);
 }
 
@@ -177,27 +169,29 @@ void Patrol::find_safest_direction() {
   // put ranges and indices into a vector for sorting
   std::vector<std::pair<int, float>> v_indexed_ranges;
   for (int i = 0; i < static_cast<int>(laser_scan_data_.ranges.size()); ++i)
-    // exclude all lower than RIGHT and higher than LEFT (REQUIREMENT)
+    // include only between RIGHT and LEFT (REQUIREMENT)
     if (i >= RIGHT && i <= LEFT)
       v_indexed_ranges.push_back(std::make_pair(i, laser_scan_data_.ranges[i]));
 
-  // sort by ranges in descending order
+  // sort by ranges in descending order to get the peak ranges first
   std::sort(v_indexed_ranges.begin(), v_indexed_ranges.end(),
             [](const std::pair<int, float> &a, const std::pair<int, float> &b) {
               return a.second > b.second;
             });
 
   // for the top NUM_PEAKS, sum up their neighboring ranges
-  // (by NUM_NEIGHBORS) and keep track of the index with the
-  // largest sum
+  // (by NUM_NEIGHBORS) on both sides and keep track of the
+  // index with the largest sum
   float highest_sum = 0, sum;
   int highest_sum_index = -1, peak_index;
   for (int i = 0; i < NUM_PEAKS; ++i) {
     peak_index = v_indexed_ranges[i].first;
-    for (int j = peak_index - NUM_NEIGHBORS; j < peak_index; ++j)
+    for (int j = peak_index - NUM_NEIGHBORS; j <= peak_index + NUM_NEIGHBORS;
+         ++j)
       sum += laser_scan_data_.ranges[j];
-    for (int j = peak_index + 1; j <= peak_index + NUM_NEIGHBORS; ++j)
-      sum += laser_scan_data_.ranges[j];
+    // we don't want the highest peak but the widest direction
+    // so remove the peak value from the sum
+    sum -= laser_scan_data_.ranges[peak_index];
     if (sum > highest_sum) {
       highest_sum = sum;
       highest_sum_index = peak_index;
@@ -206,69 +200,40 @@ void Patrol::find_safest_direction() {
   }
 
   // for the highest_sum_index, calculate the angle
-  // negative CW, positive CCW
+  // negative - CW, positive - CCW
   // angle_increment is in radians
   direction_ = (highest_sum_index - FRONT) * laser_scan_data_.angle_increment;
 }
 
-// TODO: Can this not block but pass through, only starting the rotation
-//       and stopping it when it completes?
-//       Slightly different logic...
-void Patrol::turn_safest_direction() {
-  // TODO: port _rotate from checkpoint2 branch of my_rb1_robot
-  // NOTE: use direction_ as goal yaw and to set the
-  //       angular velocity
-  // NOTE: stop the robot before exiting, the caller will set the
-  //       forward velocity
-
-  // TODO: how does this loop interact with the 10 Hz callback
-  //       which is the caller?
-
-  double last_angle double turn_angle = 0.0;
-  double goal_angle = direction_;
-
-  vel_cmd_msg_.linear.x = 0.0;
-  if (goal_angle > 0)
-    vel_cmd_msg_.angular.z = goal_angle / 2.0;
-  else
-    vel_cmd_msg_.angular.z = -goal_angle / 2.0;
-
-  if (goal_angle > 0) {
-    while (rclcpp::ok() &&
-           (abs(turn_angle + ANGULAR_TOLERANCE) < abs(goal_angle))) {
-      publisher_.pub(vel_cmd_msg_);
-      // what about sleep()?
-
-      double temp_yaw = yaw_; // yaw_ is changing
-      double delta_angle = normalize_angle(temp_yaw - last_angle);
-
-      turn_angle += delta_angle;
-      last_angle = temp_yaw;
+// this is a pass-through version of the function:
+// no while loop, just starting, monitoring, and
+// stopping the turning
+bool Patrol::turn_safest_direction() {
+  // this is done to avoid error depending on direction of turning
+  if ((direction_ > 0 && (abs(yaw_ + ANGULAR_TOLERANCE) < abs(direction_))) ||
+      (direction_ < 0 && (abs(yaw_ - ANGULAR_TOLERANCE) <
+                          abs(direction_)))) { // need to turn (more)
+    // if not turning already, start, otherwise continue
+    if (!turning_) {
+      turning_ = true;
+      vel_cmd_msg_.angular.z = direction_ / 2.0;
     }
   } else {
-    while (rclcpp::ok() &&
-           (abs(turn_angle - ANGULAR_TOLERANCE) < abs(goal_angle))) {
-      publisher_.pub(vel_cmd_msg_);
-      // what about sleep()?
-
-      double temp_yaw = yaw_; // yaw_ is changing
-      double delta_angle = normalize_angle(temp_yaw - last_angle);
-
-      turn_angle += delta_angle;
-      last_angle = temp_yaw;
+    // reached goal angle within tolerance, stop turning
+    turning_ = false;
+    vel_cmd_msg_.angular.z = 0.0;
   }
 
-  vel_cmd_msg_.angular.z = 0.0;
-  publisher_.publish(vel_cmd_msg_);
+  return turning_;
 }
 
 double Patrol::normalize_angle(double angle) {
-    double res = angle;
-    while (res > PI)
-        res -= 2.0 * PI;
-    while (res < -PI)
-        res += 2.0 * PI;
-    return res;
+  double res = angle;
+  while (res > PI)
+    res -= 2.0 * PI;
+  while (res < -PI)
+    res += 2.0 * PI;
+  return res;
 }
 
 int main(int argc, char *argv[]) {
