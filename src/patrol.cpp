@@ -165,7 +165,8 @@ void Patrol::velocity_callback() {
     // go to TURNING
     find_safest_direction();
     state = State::TURNING;
-    RCLCPP_INFO(this->get_logger(), "Found new direction %f", direction_);
+    RCLCPP_INFO(this->get_logger(), "Found new direction (robot frame) %f",
+                direction_);
     RCLCPP_DEBUG(this->get_logger(), "Starting yaw %f", yaw_);
     break;
   case State::TURNING:
@@ -330,8 +331,6 @@ void Patrol::find_safest_direction() {
   // negative - CW, positive - CCW
   // angle_increment is in radians
   direction_ = (highest_sum_index - FRONT) * laser_scan_data_.angle_increment;
-
-  RCLCPP_INFO(this->get_logger(), "Found new direction %f", direction_);
 }
 
 double Patrol::normalize_angle(double angle) {
