@@ -25,15 +25,21 @@ public:
   ~Patrol() = default;
 
 private:
-  rclcpp::TimerBase::SharedPtr timer_;
-  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr publisher_;
+  sensor_msgs::msg::LaserScan laser_scan_data_;
+  geometry_msgs::msg::Twist cmd_vel_msg_;
+
+  bool have_laser;
+  bool have_odom;
+
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
-  sensor_msgs::msg::LaserScan laser_scan_data_;
-  geometry_msgs::msg::Twist vel_cmd_msg_;
-  double direction_; // angle in radians
-  double yaw_;       // current orientation
-  bool turning_;     // if turning_ don't publish cmd_vel
+  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr publisher_;
+  rclcpp::TimerBase::SharedPtr timer_;
+
+  double direction_;  // angle in radians
+  double yaw_;        // current orientation
+  bool turning_;      // if turning_ don't publish cmd_vel
+  bool done_turning_; // if has turned in new direction
 
   // Laser scanner parametrization and smoothing
 
@@ -51,15 +57,17 @@ private:
   const int LEFT_FROM = LEFT - 28, LEFT_TO = LEFT + 28; // ~30 deg angle
   // Ranges index for "forward" is 329
   const int FRONT = 329;
-  const int FRONT_FROM = FRONT - 46, FRONT_TO = FRONT + 46; // ~50 deg angle
+  //   const int FRONT_FROM = FRONT - 46, FRONT_TO = FRONT + 46; // ~50 deg
+  //   angle
+  const int FRONT_FROM = FRONT - 28, FRONT_TO = FRONT + 28; // ~30 deg angle
 
   // The following is done to avoid "narrow" width affordances for the robot
   // A NUM_PEAKS longest ranges will be compared by the SUM or NUM_NEIGHBORS
   // neighboring ranges on both sides. This will approximate fitting a normal
   // distribution and allow picking a direction that is most likely to be
   // "wide" enough for the robot to move in.
-  const int NUM_PEAKS = 5;
-  const int NUM_NEIGHBORS = 5;
+  const int NUM_PEAKS = 100;
+  const int NUM_NEIGHBORS = 30;
 
   // Range of the center of next direction (+/- pi radians) REQUIREMENT
   const int DIR_FROM = LEFT;
@@ -74,6 +82,9 @@ private:
   const double ANGULAR_TOLERANCE_DEG = 1.5;
   const double ANGULAR_TOLERANCE = ANGULAR_TOLERANCE_DEG * PI / 180.0;
   const double FLOAT_COMPARISON_TOLERANCE = 1e-9;
+
+  enum class State { STOPPED, FORWARD, FIND_NEW_DIR, TURNING };
+  State state;
 
   // publisher
   void velocity_callback();
@@ -93,55 +104,132 @@ private:
 // constructors
 
 Patrol::Patrol() : Node("robot_patrol_node") {
-  publisher_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
-  timer_ = this->create_wall_timer(100ms,
-                                   std::bind(&Patrol::velocity_callback, this));
   scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
       "scan", 10, std::bind(&Patrol::laser_scan_callback, this, _1));
   odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
       "odom", 10, std::bind(&Patrol::odometry_callback, this, _1));
+  publisher_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
+  timer_ = this->create_wall_timer(100ms,
+                                   std::bind(&Patrol::velocity_callback, this));
+  have_laser = false;
+  have_odom = false;
   turning_ = false;
+  done_turning_ = false;
+  state = State::STOPPED;
 }
 
 // callbacks
 
 // publisher
 void Patrol::velocity_callback() {
-  if (!obstacle_in_range(FRONT_FROM, FRONT_TO, OBSTACLE_PROXIMITY)) {
-    // clear in front => go forward
-    vel_cmd_msg_.linear.x = LINEAR_BASE;
-    vel_cmd_msg_.angular.z = 0.0;
-  } else if (abs(vel_cmd_msg_.linear.x - LINEAR_BASE) <
-             FLOAT_COMPARISON_TOLERANCE) {
-    // robot stopped => changing direction
+  //   RCLCPP_INFO(this->get_logger(), "Velocity callback");
+  if (!have_laser || !have_odom) {
+    RCLCPP_INFO(this->get_logger(), "No nav data. Velocity callback no-op.");
+    return;
+  }
 
-    // if not already turning, find safest direction
-    if (!turning_)
-      find_safest_direction();
+  switch (state) {
+  case State::STOPPED:
+    // if no obstacle in front, go to FORWARD
+    // set cmd_vel_msg_.linear.x = LINEAR_BASE
+    // set cmd_vel_msg_.angular.z = 0.0
+    if (!obstacle_in_range(FRONT_FROM, FRONT_TO, OBSTACLE_PROXIMITY)) {
+      cmd_vel_msg_.linear.x = LINEAR_BASE;
+      cmd_vel_msg_.angular.z = 0.0;
+      state = State::FORWARD;
+      RCLCPP_INFO(this->get_logger(), "Going forward");
+    } else {
+      cmd_vel_msg_.linear.x = 0.0;
+      cmd_vel_msg_.angular.z = 0.0;
+      state = State::FIND_NEW_DIR;
+    }
+    break;
+  case State::FORWARD:
+    // if no obstacle in front, stay in FORWARD
+    // if obstacle in front, go to TURNING
+    // set cmd_vel_msg_.linear.x = 0.0
+    // set cmd_vel_msg_.angular.z = 0.0
+    if (obstacle_in_range(FRONT_FROM, FRONT_TO, OBSTACLE_PROXIMITY)) {
+      cmd_vel_msg_.linear.x = 0.0;
+      cmd_vel_msg_.angular.z = 0.0;
+      state = State::FIND_NEW_DIR;
+      RCLCPP_INFO(this->get_logger(), "Obstacle in front, stopping");
+    }
+    break;
+  case State::FIND_NEW_DIR:
+    // find new direction
+    // do not change cmd_vel_msg_
+    // go to TURNING
+    find_safest_direction();
+    state = State::TURNING;
+    RCLCPP_INFO(this->get_logger(), "Found new direction %f", direction_);
+    RCLCPP_INFO(this->get_logger(), "Starting yaw %f", yaw_);
+    break;
+  case State::TURNING:
+    // if not turned in new direction, stay at TURNING
+    // issue cmd_vel_msg_.linear.x = 0.0
+    // issue cmd_vel_msg_.angular.z = direction_ / 2.0
+    // if new direction achieved, go to STOPPED
+    // issue cmd_vel_msg_.linear.x = 0.0
+    // issue cmd_vel_msg_.angular.z = 0.0
+    // this is done to avoid error depending on direction of turning
 
-    // if not already turning, start
-    // if turning but not done, continue
-    // if turning and need to stop, stop and set not turning
-    turning_ = turn_safest_direction();
-  } else {
-    // stop robot
-    vel_cmd_msg_.linear.x = 0.0;
+    static double last_angle;
+    static double turn_angle;
+    static double goal_angle;
+
+    // if not turning, initialize to start
+    if (!turning_) {
+      last_angle = yaw_;
+      turn_angle = 0;
+      goal_angle = direction_;
+    }
+
+    if ((goal_angle > 0 &&
+         (abs(turn_angle + ANGULAR_TOLERANCE) < abs(goal_angle))) ||
+        (goal_angle < 0 && (abs(turn_angle - ANGULAR_TOLERANCE) <
+                            abs(direction_)))) { // need to turn (more)
+      cmd_vel_msg_.linear.x = 0.0;
+      cmd_vel_msg_.angular.z = direction_ / 2.0;
+
+      double temp_yaw = yaw_;
+      double delta_angle = normalize_angle(temp_yaw - last_angle);
+
+      turn_angle += delta_angle;
+      last_angle = temp_yaw;
+
+      turning_ = true;
+    } else {
+      // reached goal angle within tolerance, stop turning
+      RCLCPP_INFO(this->get_logger(), "Resulting yaw %f", yaw_);
+      RCLCPP_INFO(this->get_logger(), "Within tolerance of new direction");
+      cmd_vel_msg_.linear.x = 0.0;
+      cmd_vel_msg_.angular.z = 0.0;
+
+      turning_ = false;
+      state = State::STOPPED;
+    }
+    break;
   }
 
   // single point of publishing
-  publisher_->publish(vel_cmd_msg_);
+  publisher_->publish(cmd_vel_msg_);
 }
 
 // subscriber
 void Patrol::laser_scan_callback(
     const sensor_msgs::msg::LaserScan::SharedPtr msg) {
+  //   RCLCPP_INFO(this->get_logger(), "Laser scan callback");
   laser_scan_data_ = *msg;
+  have_laser = true;
   RCLCPP_DEBUG(this->get_logger(), "Distance to the left is %f",
                laser_scan_data_.ranges[LEFT]);
 }
 
 // subscriber
 void Patrol::odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
+  //   RCLCPP_INFO(this->get_logger(), "Odometry callback");
+  have_odom = true;
   yaw_ = yaw_from_quaternion(
       msg->pose.pose.orientation.x, msg->pose.pose.orientation.y,
       msg->pose.pose.orientation.z, msg->pose.pose.orientation.w);
@@ -160,16 +248,44 @@ bool Patrol::obstacle_in_range(int from, int to, double dist) {
   for (int i = from; i <= to; ++i)
     // inf >> dist
     if (!std::isinf(laser_scan_data_.ranges[i]))
-      if (laser_scan_data_.ranges[i] <= dist)
+      if (laser_scan_data_.ranges[i] <= dist) {
         is_obstacle = true;
+        break;
+      }
   return is_obstacle;
 }
+// void Patrol::find_safest_direction() {
+//   // safest direction
+//   double largest_range = 0.0;
+//   int largest_range_index = -1;
+//   for (int i = 0; i < static_cast<int>(laser_scan_data_.ranges.size()); ++i)
+//     // include only between RIGHT and LEFT (REQUIREMENT)
+//     if (i >= RIGHT && i <= LEFT) {
+//       if (laser_scan_data_.ranges[i] > largest_range) {
+//         largest_range = laser_scan_data_.ranges[i];
+//         largest_range_index = i;
+//       }
+//     }
+//   RCLCPP_INFO(this->get_logger(), "largest_range_index %d",
+//               largest_range_index);
+//   RCLCPP_INFO(this->get_logger(), "largest_range %f", largest_range);
+//   RCLCPP_INFO(this->get_logger(), "range in front %f",
+//               laser_scan_data_.ranges[FRONT]);
+//   direction_ = (largest_range_index - FRONT) *
+//   laser_scan_data_.angle_increment;
+//   // this direction is relative to the robot
+//   // the rotation algorithm should take care of that
+// }
+
+// A more sophisticated algorithm to try later
 
 void Patrol::find_safest_direction() {
+  RCLCPP_INFO(this->get_logger(), "Looking for safest direction");
+
   // put ranges and indices into a vector for sorting
   std::vector<std::pair<int, float>> v_indexed_ranges;
   for (int i = 0; i < static_cast<int>(laser_scan_data_.ranges.size()); ++i)
-    // include only between RIGHT and LEFT (REQUIREMENT)
+    // include only ray indices between RIGHT and LEFT (REQUIREMENT)
     if (i >= RIGHT && i <= LEFT)
       v_indexed_ranges.push_back(std::make_pair(i, laser_scan_data_.ranges[i]));
 
@@ -189,12 +305,17 @@ void Patrol::find_safest_direction() {
     for (int j = peak_index - NUM_NEIGHBORS; j <= peak_index + NUM_NEIGHBORS;
          ++j)
       sum += laser_scan_data_.ranges[j];
-    // we don't want the highest peak but the widest direction
-    // so remove the peak value from the sum
+    // // we don't want the highest peak but the widest direction
+    // // so remove the peak value from the sum
     sum -= laser_scan_data_.ranges[peak_index];
     if (sum > highest_sum) {
       highest_sum = sum;
       highest_sum_index = peak_index;
+
+      RCLCPP_INFO(this->get_logger(), "Peak index sort pos = %d", i);      
+      RCLCPP_INFO(this->get_logger(), "Peak ranges index = %d", peak_index);      
+      RCLCPP_INFO(this->get_logger(), "Peak range = %f", laser_scan_data_.ranges[peak_index]);      
+      RCLCPP_INFO(this->get_logger(), "Neighbor sum of ranges = %f\n", highest_sum);      
     }
     sum = 0;
   }
@@ -203,6 +324,8 @@ void Patrol::find_safest_direction() {
   // negative - CW, positive - CCW
   // angle_increment is in radians
   direction_ = (highest_sum_index - FRONT) * laser_scan_data_.angle_increment;
+
+  RCLCPP_INFO(this->get_logger(), "Found new direction %f", direction_);
 }
 
 // this is a pass-through version of the function:
@@ -216,12 +339,20 @@ bool Patrol::turn_safest_direction() {
     // if not turning already, start, otherwise continue
     if (!turning_) {
       turning_ = true;
-      vel_cmd_msg_.angular.z = direction_ / 2.0;
+      cmd_vel_msg_.angular.z = direction_ / 2.0;
+      RCLCPP_INFO(this->get_logger(), "Starting to turn");
+    } else {
+      RCLCPP_INFO(this->get_logger(), "Still turning");
+      RCLCPP_INFO(this->get_logger(), "Linear %f", cmd_vel_msg_.linear.x);
+      RCLCPP_INFO(this->get_logger(), "Angular %f", cmd_vel_msg_.angular.z);
+      RCLCPP_INFO(this->get_logger(), "Direction %f", direction_);
+      RCLCPP_INFO(this->get_logger(), "Yaw %f\n", yaw_);
     }
   } else {
     // reached goal angle within tolerance, stop turning
     turning_ = false;
-    vel_cmd_msg_.angular.z = 0.0;
+    cmd_vel_msg_.angular.z = 0.0;
+    RCLCPP_INFO(this->get_logger(), "Completed turning");
   }
 
   return turning_;
