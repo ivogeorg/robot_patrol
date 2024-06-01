@@ -56,9 +56,9 @@ private:
   const int LEFT = 493;
   const int LEFT_FROM = LEFT - 28, LEFT_TO = LEFT + 28; // ~30 deg angle
   // Ranges index for "forward" is 329
+  // This protects the robot from catching a wheel on an obstacle it can't
+  // "see".
   const int FRONT = 329;
-  //   const int FRONT_FROM = FRONT - 46, FRONT_TO = FRONT + 46; // ~50 deg
-  //   angle
   const int FRONT_FROM = FRONT - 28, FRONT_TO = FRONT + 28; // ~30 deg angle
 
   // The following is done to avoid "narrow" width affordances for the robot
@@ -97,7 +97,6 @@ private:
   bool obstacle_in_range(int from, int to, double dist);
   double yaw_from_quaternion(double x, double y, double z, double w);
   void find_safest_direction();
-  bool turn_safest_direction();
   double normalize_angle(double angle);
 };
 
@@ -122,7 +121,11 @@ Patrol::Patrol() : Node("robot_patrol_node") {
 
 // publisher
 void Patrol::velocity_callback() {
-  //   RCLCPP_INFO(this->get_logger(), "Velocity callback");
+  RCLCPP_DEBUG(this->get_logger(), "Velocity callback");
+
+  // Avoid accessing uninitialized data structures
+  // Both laser scan and odometry data is required
+  // in velocity_callback
   if (!have_laser || !have_odom) {
     RCLCPP_INFO(this->get_logger(), "No nav data. Velocity callback no-op.");
     return;
@@ -163,7 +166,7 @@ void Patrol::velocity_callback() {
     find_safest_direction();
     state = State::TURNING;
     RCLCPP_INFO(this->get_logger(), "Found new direction %f", direction_);
-    RCLCPP_INFO(this->get_logger(), "Starting yaw %f", yaw_);
+    RCLCPP_DEBUG(this->get_logger(), "Starting yaw %f", yaw_);
     break;
   case State::TURNING:
     // if not turned in new direction, stay at TURNING
@@ -201,8 +204,9 @@ void Patrol::velocity_callback() {
       turning_ = true;
     } else {
       // reached goal angle within tolerance, stop turning
-      RCLCPP_INFO(this->get_logger(), "Resulting yaw %f", yaw_);
-      RCLCPP_INFO(this->get_logger(), "Within tolerance of new direction");
+      RCLCPP_DEBUG(this->get_logger(), "Resulting yaw %f", yaw_);
+      RCLCPP_INFO(this->get_logger(),
+                  "Turned within tolerance of new direction");
       cmd_vel_msg_.linear.x = 0.0;
       cmd_vel_msg_.angular.z = 0.0;
 
@@ -219,7 +223,7 @@ void Patrol::velocity_callback() {
 // subscriber
 void Patrol::laser_scan_callback(
     const sensor_msgs::msg::LaserScan::SharedPtr msg) {
-  //   RCLCPP_INFO(this->get_logger(), "Laser scan callback");
+  RCLCPP_DEBUG(this->get_logger(), "Laser scan callback");
   laser_scan_data_ = *msg;
   have_laser = true;
   RCLCPP_DEBUG(this->get_logger(), "Distance to the left is %f",
@@ -228,7 +232,7 @@ void Patrol::laser_scan_callback(
 
 // subscriber
 void Patrol::odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
-  //   RCLCPP_INFO(this->get_logger(), "Odometry callback");
+  RCLCPP_DEBUG(this->get_logger(), "Odometry callback");
   have_odom = true;
   yaw_ = yaw_from_quaternion(
       msg->pose.pose.orientation.x, msg->pose.pose.orientation.y,
@@ -254,6 +258,7 @@ bool Patrol::obstacle_in_range(int from, int to, double dist) {
       }
   return is_obstacle;
 }
+// The simplest algorithm. Somewhat less robust.
 // void Patrol::find_safest_direction() {
 //   // safest direction
 //   double largest_range = 0.0;
@@ -277,8 +282,7 @@ bool Patrol::obstacle_in_range(int from, int to, double dist) {
 //   // the rotation algorithm should take care of that
 // }
 
-// A more sophisticated algorithm to try later
-
+// A more sophisticated algorithm. More robust.
 void Patrol::find_safest_direction() {
   RCLCPP_INFO(this->get_logger(), "Looking for safest direction");
 
@@ -312,10 +316,12 @@ void Patrol::find_safest_direction() {
       highest_sum = sum;
       highest_sum_index = peak_index;
 
-      RCLCPP_INFO(this->get_logger(), "Peak index sort pos = %d", i);      
-      RCLCPP_INFO(this->get_logger(), "Peak ranges index = %d", peak_index);      
-      RCLCPP_INFO(this->get_logger(), "Peak range = %f", laser_scan_data_.ranges[peak_index]);      
-      RCLCPP_INFO(this->get_logger(), "Neighbor sum of ranges = %f\n", highest_sum);      
+      RCLCPP_DEBUG(this->get_logger(), "Peak index sort pos = %d", i);
+      RCLCPP_DEBUG(this->get_logger(), "Peak ranges index = %d", peak_index);
+      RCLCPP_DEBUG(this->get_logger(), "Peak range = %f",
+                   laser_scan_data_.ranges[peak_index]);
+      RCLCPP_DEBUG(this->get_logger(), "Neighbor sum of ranges = %f\n",
+                   highest_sum);
     }
     sum = 0;
   }
@@ -326,36 +332,6 @@ void Patrol::find_safest_direction() {
   direction_ = (highest_sum_index - FRONT) * laser_scan_data_.angle_increment;
 
   RCLCPP_INFO(this->get_logger(), "Found new direction %f", direction_);
-}
-
-// this is a pass-through version of the function:
-// no while loop, just starting, monitoring, and
-// stopping the turning
-bool Patrol::turn_safest_direction() {
-  // this is done to avoid error depending on direction of turning
-  if ((direction_ > 0 && (abs(yaw_ + ANGULAR_TOLERANCE) < abs(direction_))) ||
-      (direction_ < 0 && (abs(yaw_ - ANGULAR_TOLERANCE) <
-                          abs(direction_)))) { // need to turn (more)
-    // if not turning already, start, otherwise continue
-    if (!turning_) {
-      turning_ = true;
-      cmd_vel_msg_.angular.z = direction_ / 2.0;
-      RCLCPP_INFO(this->get_logger(), "Starting to turn");
-    } else {
-      RCLCPP_INFO(this->get_logger(), "Still turning");
-      RCLCPP_INFO(this->get_logger(), "Linear %f", cmd_vel_msg_.linear.x);
-      RCLCPP_INFO(this->get_logger(), "Angular %f", cmd_vel_msg_.angular.z);
-      RCLCPP_INFO(this->get_logger(), "Direction %f", direction_);
-      RCLCPP_INFO(this->get_logger(), "Yaw %f\n", yaw_);
-    }
-  } else {
-    // reached goal angle within tolerance, stop turning
-    turning_ = false;
-    cmd_vel_msg_.angular.z = 0.0;
-    RCLCPP_INFO(this->get_logger(), "Completed turning");
-  }
-
-  return turning_;
 }
 
 double Patrol::normalize_angle(double angle) {
