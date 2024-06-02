@@ -84,5 +84,9 @@ A turtlebot3 patrolling the simulated and real robot pen/polygon. Patrolling mea
    2. Add an `SOS` state that would relax the requirements and allow the robot to extricate itself when it detects that it is stuck. Some of the parameters to relax:
       1. Angle to look for new directions > +/- pi. Add `extended = false` parameter to `find_safest_direction`. _Watch for wraparound. May need to normalize at the edges._
       2. Slow backward movement (`cmd_vel_msg_.linear.x = -0.05;`) with close 360-degree monitoring of obstacles.
-   3. Add buffer space around obstacles to avoid the wheels catching the bases of the traffic signs. See lab camera views above.  
+   3. (_advanced_) Add buffer space around obstacles to avoid the wheels catching the bases of the traffic signs. See lab camera views above.
+      1. Measure arc-width of the detected obstacles.  
+      2. Calculate the if one of the wheels might catch the obstacle.  
+      3. Modify the direction of the robot to avoid the obstacle.  
+      4. Do this dynamically throughout as obstacle widths will vary depending on the (changing) orientation relative to the robot (point of view).  
 
