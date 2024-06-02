@@ -12,6 +12,8 @@ A turtlebot3 patrolling the simulated and real robot pen/polygon. Patrolling mea
 
 #### Laser scan orientation and parameterization
 
+##### Simulator
+
 ```
 [laser_scan_subscriber_node]: angle_min = -3.141600
 [laser_scan_subscriber_node]: angle_max = 3.141600
@@ -46,6 +48,12 @@ A turtlebot3 patrolling the simulated and real robot pen/polygon. Patrolling mea
     */
 ```
 
+
+##### Lab
+
+![Turtlebot lab scanner has 720 rays](assets/turtlebot-lab-scanner-parameters.jpg)  
+
+
 #### Current yaw
 
 1. The current yaw of the robot is extracted from the odometry message:
@@ -62,11 +70,19 @@ A turtlebot3 patrolling the simulated and real robot pen/polygon. Patrolling mea
 
 #### Requirements & todo
 
-1. Port (from ROS 1 to ROS 2) and adapt the [`_rotate`](https://github.com/ivogeorg/my_rb1_robot/blob/ece261459d47d661b5d7ccb5789d8b71e6de308c/my_rb1_ros/src/rotate_service.cpp#L96) code into a private function. Call it `rotate_`.  
-2. Update `rotate_` to work with radians only, not convert from degrees.  
-3. Utilize the **required** `direction_` private variable, the angle between the current forward direction of the robot and the direction of the longest range from the scanner, within the +/- pi/2 radians relative to the forward direction, in two ways:
-   1. This will be the argument to `rotate_`, explicitly or implicitly. This requires some consideration, because a single farthest range that may fall between two obstacles along the way may not be the safest direction to head to. Instead:
-      1. Short list the 5 longest ranges, by index.
-      2. For each one get the average of the closest `r` ranges on both sides of it, `+r/2` and `-r/2` (make sure `r = 2*p`, for some `p`).
-      3. Pick the ray index with the highest average. Think of this as a width affordance for the robot heading in a new direction.
-   3. This will determine the angular velocity to set in `vel_cmd_msg_`.    
+![View of the lab](assets/turtlebot-lab-camera-views.jpg)  
+
+1. Scanner values are hardcoded. Need dynamic self-parameterization.
+2. Lab scanner returns `inf` values for some ranges. Need to guard and either ignore or set values to one of two alternative numbers:
+   1. `range_max`. or 
+   2. A suitable average value for the space which is well above the obstacle threshold (0.35 m) but also won't throw off the calculations, esp. the sums of neighboring ray-ranges for the peak ranges. The space is about 2.0 m x 1.8 m.  
+3. The robot got stuck very quickly in the lab, where the obstacles are farther apart and harder to detect than the simulator. Need to:
+   1. Monitor for the state of getting stuck and possibly oscillating without positive outcome. These will be:
+      1. Count of finding new directions without movement.
+      2. New directions that are too close to current orientation and/or which automatically fall within tolerance of current orientation.
+      3. Exactly how close is the robot to an obstacle "in front".
+   2. Add an `SOS` state that would relax the requirements and allow the robot to extricate itself when it detects that it is stuck. Some of the parameters to relax:
+      1. Angle to look for new directions > +/- pi. Add `extended = false` parameter to `find_safest_direction`. _Watch for wraparound. May need to normalize at the edges._
+      2. Slow backward movement (`cmd_vel_msg_.linear.x = -0.05;`) with close 360-degree monitoring of obstacles.
+   3. Add buffer space around obstacles to avoid the wheels catching the bases of the traffic signs. See lab camera views above.  
+
