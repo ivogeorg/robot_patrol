@@ -2,6 +2,14 @@
 
 A turtlebot3 patrolling the simulated and real robot pen/polygon. Patrolling means constantly moving and avoiding obstacles.
 
+#### Submission notes
+
+`colcon build --packages-select robot_patrol`  
+`ros2 launch turtlebot3_gazebo main_turtlebot3_lab.launch.xml`  
+`ros2 launch robot_patrol start_patrolling.launch.py`
+
+1. 
+
 #### Laser scan orientation and parameterization
 
 ```

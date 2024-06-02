@@ -317,11 +317,11 @@ void Patrol::find_safest_direction() {
       highest_sum = sum;
       highest_sum_index = peak_index;
 
-      RCLCPP_DEBUG(this->get_logger(), "Peak index sort pos = %d", i);
-      RCLCPP_DEBUG(this->get_logger(), "Peak ranges index = %d", peak_index);
-      RCLCPP_DEBUG(this->get_logger(), "Peak range = %f",
+      RCLCPP_INFO(this->get_logger(), "Peak index sort pos = %d", i);
+      RCLCPP_INFO(this->get_logger(), "Peak ranges index = %d", peak_index);
+      RCLCPP_INFO(this->get_logger(), "Peak range = %f",
                    laser_scan_data_.ranges[peak_index]);
-      RCLCPP_DEBUG(this->get_logger(), "Neighbor sum of ranges = %f\n",
+      RCLCPP_INFO(this->get_logger(), "Neighbor sum of ranges = %f\n",
                    highest_sum);
     }
     sum = 0;
