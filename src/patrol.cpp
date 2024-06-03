@@ -28,8 +28,9 @@ private:
   sensor_msgs::msg::LaserScan laser_scan_data_;
   geometry_msgs::msg::Twist cmd_vel_msg_;
 
-  bool have_laser;
-  bool have_odom;
+  bool have_laser_;
+  bool have_odom_;
+  bool laser_scanner_parametrized_;
 
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
@@ -94,6 +95,7 @@ private:
   void odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
 
   // utility functions
+  void parametrize_laser_scanner();
   bool obstacle_in_range(int from, int to, double dist);
   double yaw_from_quaternion(double x, double y, double z, double w);
   void find_safest_direction();
@@ -110,11 +112,12 @@ Patrol::Patrol() : Node("robot_patrol_node") {
   publisher_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
   timer_ = this->create_wall_timer(100ms,
                                    std::bind(&Patrol::velocity_callback, this));
-  have_laser = false;
-  have_odom = false;
+  have_laser_ = false;
+  have_odom_ = false;
   turning_ = false;
   done_turning_ = false;
   state = State::STOPPED;
+  laser_scanner_parametrized_ = false;
 }
 
 // callbacks
@@ -126,8 +129,14 @@ void Patrol::velocity_callback() {
   // Avoid accessing uninitialized data structures
   // Both laser scan and odometry data is required
   // in velocity_callback
-  if (!have_laser || !have_odom) {
+  if (!have_laser_ || !have_odom_) {
     RCLCPP_INFO(this->get_logger(), "No nav data. Velocity callback no-op.");
+    return;
+  } else if (!laser_scanner_parametrized_) {
+    // data is available but scanner has not parametrized yet
+    parametrize_laser_scanner();
+    RCLCPP_INFO(this->get_logger(),
+                "Parametrizing laser scanner. Velocity callback no-op.");
     return;
   }
 
@@ -226,7 +235,7 @@ void Patrol::laser_scan_callback(
     const sensor_msgs::msg::LaserScan::SharedPtr msg) {
   RCLCPP_DEBUG(this->get_logger(), "Laser scan callback");
   laser_scan_data_ = *msg;
-  have_laser = true;
+  have_laser_ = true;
   RCLCPP_DEBUG(this->get_logger(), "Distance to the left is %f",
                laser_scan_data_.ranges[LEFT]);
 }
@@ -234,7 +243,7 @@ void Patrol::laser_scan_callback(
 // subscriber
 void Patrol::odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
   RCLCPP_DEBUG(this->get_logger(), "Odometry callback");
-  have_odom = true;
+  have_odom_ = true;
   yaw_ = yaw_from_quaternion(
       msg->pose.pose.orientation.x, msg->pose.pose.orientation.y,
       msg->pose.pose.orientation.z, msg->pose.pose.orientation.w);
@@ -242,6 +251,21 @@ void Patrol::odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
 }
 
 // end callbacks
+
+// utility functions
+void Patrol::parametrize_laser_scanner() {
+    // TODO:
+    // migrate private const to private variables
+    // derive variables from laser_scan_data_ message parameters
+    // perform assert checks (e.g. size of ranges * angle_increment)
+    // check for inf
+    // initialize inf substitute data
+    // 
+
+
+
+}
+
 
 // yaw in radians
 double Patrol::yaw_from_quaternion(double x, double y, double z, double w) {
@@ -320,9 +344,9 @@ void Patrol::find_safest_direction() {
       RCLCPP_INFO(this->get_logger(), "Peak index sort pos = %d", i);
       RCLCPP_INFO(this->get_logger(), "Peak ranges index = %d", peak_index);
       RCLCPP_INFO(this->get_logger(), "Peak range = %f",
-                   laser_scan_data_.ranges[peak_index]);
+                  laser_scan_data_.ranges[peak_index]);
       RCLCPP_INFO(this->get_logger(), "Neighbor sum of ranges = %f\n",
-                   highest_sum);
+                  highest_sum);
     }
     sum = 0;
   }
