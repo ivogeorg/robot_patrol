@@ -67,30 +67,6 @@ A turtlebot3 patrolling the simulated and real robot pen/polygon. Patrolling mea
    `atan2(2.0f * (w * z + x * y), w * w + x * x - y * y - z * z);`
 3. The values are +/- pi radians, equivalent to +/- 180 degrees.
 
-
-#### Requirements & todo
-
-![View of the lab](assets/turtlebot-lab-camera-views.jpg)  
-
-1. Scanner values are hardcoded. Need dynamic self-parameterization. Note that indices always grow counterclockwise (CCW) from 0 to the max. _Index `0` seems to be in the backward orientation of the robot. **To verify!**_
-2. Lab scanner returns `inf` values for some ranges. `inf` is definitely generated when the range is outside [`range_min`, `range_max`. In any case, need to guard against `inf` values in ranges and either ignore or set values to one of two alternative numbers:
-   1. `range_max`. or 
-   2. A suitable average value for the space which is well above the obstacle threshold (**0.35 m**) but also won't throw off the calculations, esp. the sums of neighboring ray-ranges for the peak ranges. The space is about **2.0 m x 1.8 m**.
-3. The robot got stuck very quickly in the lab, where the obstacles are farther apart and harder to detect than the simulator. Need to:
-   1. Monitor for the state of getting stuck and possibly oscillating without positive outcome. These will be:
-      1. Count of finding new directions without movement.
-      2. New directions that are too close to current orientation and/or which automatically fall within tolerance of current orientation.
-      3. Exactly how close is the robot to an obstacle "in front".
-   2. Add an `SOS` state that would relax the requirements and allow the robot to extricate itself when it detects that it is stuck. Some of the parameters to relax:
-      1. Angle to look for new directions > +/- pi. Add `extended = false` parameter to `find_safest_direction`. _Watch for wraparound. May need to normalize at the edges._
-      2. Slow backward movement (`cmd_vel_msg_.linear.x = -0.05;`) with close 360-degree monitoring of obstacles.
-   3. (_advanced_) Add buffer space around obstacles to avoid the wheels catching the bases of the traffic signs. See lab camera views above.
-      1. Measure arc-width of the detected obstacles.  
-      2. Calculate the if one of the wheels might catch the obstacle.  
-      3. Modify the direction of the robot to avoid the obstacle.  
-      4. Do this dynamically throughout as obstacle widths will vary depending on the (changing) orientation relative to the robot (point of view).  
-      5. This will require the dimensions or the robot.
-
 #### Scanner orientation
 
 In short, **angle zero** being "forward along the x-axis" doesn't mean that **index zero** of the `ranges` vector coincides. It is actually diametrically opposite.
@@ -146,3 +122,27 @@ In short, **angle zero** being "forward along the x-axis" doesn't mean that **in
                                 # device does not provide intensities, please leave
                                 # the array empty.
    ```
+
+#### Requirements & todo
+
+![View of the lab](assets/turtlebot-lab-camera-views.jpg)  
+
+1. Scanner values are hardcoded. Need dynamic self-parameterization. Note that indices always grow counterclockwise (CCW) from 0 to the max. Index `0` seems to be in the backward orientation of the robot.
+2. Lab scanner returns `inf` values for some ranges. `inf` is definitely generated when the range is outside [`range_min`, `range_max`. In any case, need to guard against `inf` values in ranges and either ignore or set values to one of two alternative numbers:
+   1. `range_max`. or 
+   2. A suitable average value for the space which is well above the obstacle threshold (**0.35 m**) but also won't throw off the calculations, esp. the sums of neighboring ray-ranges for the peak ranges. The space is about **2.0 m x 1.8 m**.
+3. The robot got stuck very quickly in the lab, where the obstacles are farther apart and harder to detect than the simulator. Need to:
+   1. Monitor for the state of getting stuck and possibly oscillating without positive outcome. These will be:
+      1. Count of finding new directions without movement.
+      2. New directions that are too close to current orientation and/or which automatically fall within tolerance of current orientation.
+      3. Exactly how close is the robot to an obstacle "in front".
+   2. Add an `SOS` state that would relax the requirements and allow the robot to extricate itself when it detects that it is stuck. Some of the parameters to relax:
+      1. Angle to look for new directions > +/- pi. Add `extended = false` parameter to `find_safest_direction`. _Watch for wraparound. May need to normalize at the edges._
+      2. Slow backward movement (`cmd_vel_msg_.linear.x = -0.05;`) with close 360-degree monitoring of obstacles.  
+      3. Note that if the robot is somehow stuck too close to an obstacle, it might be closes than `range_min` and therefore show `inf` values!  
+   3. (_advanced_) Add buffer space around obstacles to avoid the wheels catching the bases of the traffic signs. See lab camera views above.
+      1. Measure arc-width of the detected obstacles.  
+      2. Calculate the if one of the wheels might catch the obstacle.  
+      3. Modify the direction of the robot to avoid the obstacle.  
+      4. Do this dynamically throughout as obstacle widths will vary depending on the (changing) orientation relative to the robot (point of view).  
+      5. This will require the dimensions or the robot.

@@ -15,6 +15,10 @@
 #include <utility> // for std::pair
 #include <vector>
 
+#define PI_ 3.14159265359
+#define DEG2RAD (PI_ / 180.0)
+#define RAD2DEG (180.0 / PI_)
+
 using namespace std::chrono_literals; // for s, ms, ns, etc.
 using std::placeholders::_1;          // for callback parameter placeholder in
                                       // std::bind()
@@ -37,36 +41,49 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr publisher_;
   rclcpp::TimerBase::SharedPtr timer_;
 
-  double direction_;  // angle in radians
-  double yaw_;        // current orientation
-  bool turning_;      // if turning_ don't publish cmd_vel
-  bool done_turning_; // if has turned in new direction
+  double direction_; // angle in radians
+  double yaw_;       // current orientation
+  bool turning_;     // if turning_ don't publish cmd_vel
 
   // Laser scanner parametrization and smoothing
 
-  // The following is done so as to work directly with ranges[] indices
-  // Angle ranges contain 660 rays covering 360 degrees or 2*pi radians
-  // 1 deg is about 1.83 angle increments
-  // 15 deg is 27.5 ~ 28 angle increments
-  // 25 deg is 45.8 ~ 46 angle increments
+  // The laser scanner is parametrized to a number of rays.
+  // The range readings from these rays are recieved in the
+  // `ranges` vector. This is the size of the vector.
+  int RANGES_SIZE;
 
-  // Ranges index for "right" is 164
-  const int RIGHT = 164;
-  const int RIGHT_FROM = RIGHT - 28, RIGHT_TO = RIGHT + 28; // ~30 deg angle
-  // Ranges index for "left" is 493
-  const int LEFT = 493;
-  const int LEFT_FROM = LEFT - 28, LEFT_TO = LEFT + 28; // ~30 deg angle
-  // Ranges index for "forward" is 329
-  // This protects the robot from catching a wheel on an obstacle it can't
-  // "see".
-  const int FRONT = 329;
-  const int FRONT_FROM = FRONT - 28, FRONT_TO = FRONT + 28; // ~30 deg angle
+  // For ranges outside the following distances the scanner
+  // returns `inf`!
+  double RANGE_MIN, RANGE_MAX;
 
-  // The following is done to avoid "narrow" width affordances for the robot
-  // A NUM_PEAKS longest ranges will be compared by the SUM or NUM_NEIGHBORS
-  // neighboring ranges on both sides. This will approximate fitting a normal
-  // distribution and allow picking a direction that is most likely to be
-  // "wide" enough for the robot to move in.
+  // Angle in radians between two rays
+  double ANGLE_INCREMENT;
+
+  // Work directly with ranges[] indices
+
+  // Using just a single ray in front or to the sides to detect
+  // obstacles is brittle and unreliable, so pick a spread.
+  // Split in two and center in the direction.
+  // The _FROM and _TO ranges below are to be used with this.
+  const double DIRECTION_SPREAD_DEG = 30;
+
+  // Ranges index for "right"
+  int RIGHT, RIGHT_FROM, RIGHT_TO;
+  // Ranges index for "left"
+  int LEFT, LEFT_FROM, LEFT_TO;
+  // Ranges index for "forward"
+  // This roughly protects the robot from catching a wheel on an
+  // obstacle it can't sense (e.g. a traffic sign base)
+  int FRONT, FRONT_FROM, FRONT_TO;
+  // Ranges index for "back(ward)"
+  // This is more difficult because of the discontinuity
+  // Use i = (i + 1) % RANGES_SIZE
+  int BACK, BACK_FROM, BACK_TO;
+
+  // The following help avoid "narrow" width affordances for the robot
+  // A NUM_PEAKS longest ranges will be compared by the SUM of NUM_NEIGHBORS
+  // neighboring ranges on both sides. This will allow picking a direction
+  // that is most likely to be "wide" enough for the robot to move in.
   const int NUM_PEAKS = 100;
   const int NUM_NEIGHBORS = 30;
 
@@ -79,20 +96,24 @@ private:
   const double ANGULAR_BASE = 0.5;
   const double LINEAR_BASE = 0.1; // REQUIREMENT
   const double OBSTACLE_PROXIMITY = 0.35;
-  const double PI = 3.14159265359;
   const double ANGULAR_TOLERANCE_DEG = 1.5;
-  const double ANGULAR_TOLERANCE = ANGULAR_TOLERANCE_DEG * PI / 180.0;
+  const double ANGULAR_TOLERANCE = ANGULAR_TOLERANCE_DEG * DEG2RAD;
+
+  // Misc. parameters
   const double FLOAT_COMPARISON_TOLERANCE = 1e-9;
 
+  // Robot state machine
   enum class State { STOPPED, FORWARD, FIND_NEW_DIR, TURNING };
   State state;
 
-  // publisher
+  // callbacks
+  // publishers
   void velocity_callback();
 
-  // subscriber
+  // subscribers
   void laser_scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
   void odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
+  // end callbacks
 
   // utility functions
   void parametrize_laser_scanner();
@@ -100,6 +121,7 @@ private:
   double yaw_from_quaternion(double x, double y, double z, double w);
   void find_safest_direction();
   double normalize_angle(double angle);
+  // end utility functions
 };
 
 // constructors
@@ -115,7 +137,6 @@ Patrol::Patrol() : Node("robot_patrol_node") {
   have_laser_ = false;
   have_odom_ = false;
   turning_ = false;
-  done_turning_ = false;
   state = State::STOPPED;
   laser_scanner_parametrized_ = false;
 }
@@ -254,18 +275,81 @@ void Patrol::odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
 
 // utility functions
 void Patrol::parametrize_laser_scanner() {
-    // TODO:
-    // migrate private const to private variables
-    // derive variables from laser_scan_data_ message parameters
-    // perform assert checks (e.g. size of ranges * angle_increment)
-    // check for inf
-    // initialize inf substitute data
-    // 
+  // TODO:
+  // migrate private const to private variables
+  // derive variables from laser_scan_data_ message parameters
+  // perform assert checks (e.g. size of ranges * angle_increment)
+  // check for inf
+  // initialize inf substitute data
 
+  // NOTE: Assuming this function won't be called before laser scan
+  //       data is recieved, so `laser_scan_data_` is valid.
+  // NOTE: Assuming a 2 * pi radian (360 degree) laser scanner.
+  //            __front__
+  //          |||   ^   |||
+  //          |||       |||
+  //      left  |       |  right
+  //            |       |
+  //            |_back__|--> Discontinuity due to wrap-around
+  //       Zero angle is at front.
+  //       Angles to the right are negative, to the left - positive.
+  //       Zero ranges index is at back.
+  //       Indices grow CCW from 0 to ranges.size() - 1.
+  //       For an even ranges.size(), this likely means that the
+  //       above directions are only approximated by the indices.
 
+  // Initialize from the local geometry_msgs/msg/LaserScan
+  RANGES_SIZE = laser_scan_data_.ranges.size();
+  RANGE_MIN = laser_scan_data_.range_min;
+  RANGE_MAX = laser_scan_data_.range_max;
+  ANGLE_INCREMENT = laser_scan_data_.angle_increment;
 
+  // Amount of angle added on both sides of a direction
+  // to give the robot some "peripheral" vision.
+  double HALF_SPREAD = DIRECTION_SPREAD_DEG * DEG2RAD / 2.0; // in rad
+  RCLCPP_INFO(this->get_logger(), "DIRECTION_SPREAD_DEGREES = %f", DIRECTION_SPREAD_DEG);
+  RCLCPP_INFO(this->get_logger(), "HALF_SPREAD = %f", HALF_SPREAD);
+
+  // TODO: indices from HALF_SPREAD and angle_increment!
+  int SPREAD_INDICES = static_cast<int>(HALF_SPREAD / ANGLE_INCREMENT);
+  RCLCPP_INFO(this->get_logger(), "SPREAD_INDICES = %d\n", SPREAD_INDICES);
+
+  // Ranges index for "right".
+  RIGHT = static_cast<int>(floor(0.25 * RANGES_SIZE)) - 1;
+  RIGHT_FROM = RIGHT - SPREAD_INDICES;
+  RIGHT_TO = RIGHT + SPREAD_INDICES;
+  RCLCPP_INFO(this->get_logger(), "RIGHT = %d", RIGHT);
+  RCLCPP_INFO(this->get_logger(), "RIGHT_FROM = %d", RIGHT_FROM);
+  RCLCPP_INFO(this->get_logger(), "RIGHT_TO = %d", RIGHT_TO);
+
+  // Ranges index for "left"
+  LEFT = static_cast<int>(floor(0.75 * RANGES_SIZE)) - 1;
+  LEFT_FROM = LEFT - SPREAD_INDICES;
+  LEFT_TO = LEFT + SPREAD_INDICES;
+  RCLCPP_INFO(this->get_logger(), "LEFT = %d", LEFT);
+  RCLCPP_INFO(this->get_logger(), "LEFT_FROM = %d", LEFT_FROM);
+  RCLCPP_INFO(this->get_logger(), "LEFT_TO = %d", LEFT_TO);
+
+  // Ranges index for "forward"
+  FRONT = static_cast<int>(floor(0.5 * RANGES_SIZE)) - 1;
+  FRONT_FROM = FRONT - SPREAD_INDICES;
+  FRONT_TO = FRONT + SPREAD_INDICES;
+  RCLCPP_INFO(this->get_logger(), "FRONT = %d", FRONT);
+  RCLCPP_INFO(this->get_logger(), "FRONT_FROM = %d", FRONT_FROM);
+  RCLCPP_INFO(this->get_logger(), "FRONT_TO = %d", FRONT_TO);
+
+  // Ranges index for "back(ward)"
+  // This is a bit tricky because of the discontinuity
+  // Use i = (i + 1) % RANGES_SIZE
+  BACK = 0;
+  BACK_FROM = RANGES_SIZE - 1 - SPREAD_INDICES;
+  BACK_TO = BACK + SPREAD_INDICES;
+  RCLCPP_INFO(this->get_logger(), "BACK = %d", BACK);
+  RCLCPP_INFO(this->get_logger(), "BACK_FROM = %d", BACK_FROM);
+  RCLCPP_INFO(this->get_logger(), "BACK_TO = %d\n", BACK_TO);
+
+  laser_scanner_parametrized_ = true;
 }
-
 
 // yaw in radians
 double Patrol::yaw_from_quaternion(double x, double y, double z, double w) {
@@ -283,7 +367,7 @@ bool Patrol::obstacle_in_range(int from, int to, double dist) {
       }
   return is_obstacle;
 }
-// The simplest algorithm. Somewhat less robust.
+// The simplest algorithm. Not very robust.
 // void Patrol::find_safest_direction() {
 //   // safest direction
 //   double largest_range = 0.0;
@@ -359,10 +443,10 @@ void Patrol::find_safest_direction() {
 
 double Patrol::normalize_angle(double angle) {
   double res = angle;
-  while (res > PI)
-    res -= 2.0 * PI;
-  while (res < -PI)
-    res += 2.0 * PI;
+  while (res > PI_)
+    res -= 2.0 * PI_;
+  while (res < -PI_)
+    res += 2.0 * PI_;
   return res;
 }
 
