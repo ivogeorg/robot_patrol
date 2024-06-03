@@ -89,4 +89,5 @@ A turtlebot3 patrolling the simulated and real robot pen/polygon. Patrolling mea
       2. Calculate the if one of the wheels might catch the obstacle.  
       3. Modify the direction of the robot to avoid the obstacle.  
       4. Do this dynamically throughout as obstacle widths will vary depending on the (changing) orientation relative to the robot (point of view).  
+      5. This will require the dimensions or the robot.
 
