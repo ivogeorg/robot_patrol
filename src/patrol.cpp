@@ -423,7 +423,7 @@ void Patrol::find_safest_direction() {
   for (int i = 0; i < static_cast<int>(ranges.size()); ++i)
     // include only ray indices between RIGHT and LEFT (REQUIREMENT)
     // and not those in the FRONT spread
-    if ((i >= RIGHT && i < FRONT_FROM) || (FRONT_TO && i <= LEFT))
+    if ((i >= RIGHT && i < FRONT_FROM) || (i >= FRONT_TO && i <= LEFT))
       if (!std::isinf(ranges[i]))
         v_indexed_ranges.push_back(std::make_pair(i, ranges[i]));
 
