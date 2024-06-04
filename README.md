@@ -126,12 +126,11 @@ In short, **angle zero** being "forward along the x-axis" doesn't mean that **in
 #### Requirements & todo
 
 ![View of the lab](assets/turtlebot-lab-camera-views.jpg)  
+The actual TurtleBot3 lab.  
 
-1. ~Scanner values are hardcoded. Need dynamic self-parameterization. Note that indices always grow counterclockwise (CCW) from 0 to the max. Index `0` seems to be in the backward orientation of the robot.~
-2. Lab scanner returns `inf` values for some ranges. `inf` is definitely generated when the range is outside [`range_min`, `range_max`. In any case, need to guard against `inf` values in ranges and either ignore or set values to one of two alternative numbers:
-   1. `range_max`. or 
-   2. A suitable average value for the space which is well above the obstacle threshold (**0.35 m**) but also won't throw off the calculations, esp. the sums of neighboring ray-ranges for the peak ranges. The space is about **2.0 m x 1.8 m**.
-3. The robot got stuck very quickly in the lab, where the obstacles are farther apart and harder to detect than the simulator. Need to:
+![How the robot gets stuck](assets/turtlebot-stuck-with-safe-directions.png)  
+
+1. The robot got stuck very quickly in the lab, where the obstacles are farther apart and harder to detect than the simulator. Need to:
    1. Monitor for the state of getting stuck and possibly oscillating without positive outcome. These will be:
       1. Count of finding new directions without movement.
       2. New directions that are too close to current orientation and/or which automatically fall within tolerance of current orientation.

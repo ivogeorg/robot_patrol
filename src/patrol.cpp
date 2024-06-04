@@ -176,6 +176,7 @@ void Patrol::velocity_callback() {
       cmd_vel_msg_.linear.x = 0.0;
       cmd_vel_msg_.angular.z = 0.0;
       state = State::FIND_NEW_DIR;
+      RCLCPP_INFO(this->get_logger(), "Stopped. Obstacle in front");
     }
     break;
   case State::FORWARD:
@@ -260,14 +261,14 @@ void Patrol::laser_scan_callback(
   have_laser_ = true;
 
   // DEBUG: where are the inf values generated
-  int num_inf = 0;
-  for (int i = 0; i < static_cast<int>(laser_scan_data_.ranges.size()); ++i)
-    if (std::isinf(laser_scan_data_.ranges[i])) {
-      ++num_inf;
-      RCLCPP_INFO(this->get_logger(), "inf at index %d", i);
-    }
-  if (num_inf > 0)
-    RCLCPP_INFO(this->get_logger(), "Num inf in msg: %d", num_inf);
+//   int num_inf = 0;
+//   for (int i = 0; i < static_cast<int>(laser_scan_data_.ranges.size()); ++i)
+//     if (std::isinf(laser_scan_data_.ranges[i])) {
+//       ++num_inf;
+//       RCLCPP_INFO(this->get_logger(), "inf at index %d", i);
+//     }
+//   if (num_inf > 0)
+//     RCLCPP_INFO(this->get_logger(), "Num inf in msg: %d", num_inf);
 
   RCLCPP_DEBUG(this->get_logger(), "Distance to the left is %f",
                laser_scan_data_.ranges[LEFT]);
@@ -372,10 +373,16 @@ double Patrol::yaw_from_quaternion(double x, double y, double z, double w) {
 
 bool Patrol::obstacle_in_range(int from, int to, double dist) {
   bool is_obstacle = false;
+  // get a stable local version
+  // while it may still have values from several callbacks,
+  // it is likely less inconsistent than the variable which
+  // each callback assigns
+  std::vector<double> ranges(laser_scan_data_.ranges.begin(),
+                             laser_scan_data_.ranges.end());
   for (int i = from; i <= to; ++i)
     // inf >> dist
-    if (!std::isinf(laser_scan_data_.ranges[i]))
-      if (laser_scan_data_.ranges[i] <= dist) {
+    if (!std::isinf(ranges[i]))
+      if (ranges[i] <= dist) {
         is_obstacle = true;
         break;
       }
@@ -408,15 +415,17 @@ bool Patrol::obstacle_in_range(int from, int to, double dist) {
 // A more sophisticated algorithm. More robust.
 void Patrol::find_safest_direction() {
   RCLCPP_INFO(this->get_logger(), "Looking for safest direction");
+  std::vector<double> ranges(laser_scan_data_.ranges.begin(),
+                             laser_scan_data_.ranges.end());
 
   // put ranges and indices into a vector for sorting
   std::vector<std::pair<int, float>> v_indexed_ranges;
-  for (int i = 0; i < static_cast<int>(laser_scan_data_.ranges.size()); ++i)
+  for (int i = 0; i < static_cast<int>(ranges.size()); ++i)
     // include only ray indices between RIGHT and LEFT (REQUIREMENT)
-    if (i >= RIGHT && i <= LEFT)
-      if (!std::isinf(laser_scan_data_.ranges[i]))
-        v_indexed_ranges.push_back(
-            std::make_pair(i, laser_scan_data_.ranges[i]));
+    // and not those in the FRONT spread
+    if ((i >= RIGHT && i < FRONT_FROM) || (FRONT_TO && i <= LEFT))
+      if (!std::isinf(ranges[i]))
+        v_indexed_ranges.push_back(std::make_pair(i, ranges[i]));
 
   // sort by ranges in descending order to get the peak ranges first
   std::sort(v_indexed_ranges.begin(), v_indexed_ranges.end(),
@@ -449,8 +458,8 @@ void Patrol::find_safest_direction() {
     // avg_full
     for (int j = peak_index - num_neighbors; j <= peak_index + num_neighbors;
          ++j)
-      if (!std::isinf(laser_scan_data_.ranges[j])) {
-        sum += laser_scan_data_.ranges[j];
+      if (!std::isinf(ranges[j])) {
+        sum += ranges[j];
         divisor += 1.0;
       }
     // // we don't want the highest peak but the widest direction
@@ -465,8 +474,8 @@ void Patrol::find_safest_direction() {
     num_neighbors = static_cast<int>(floor(num_neighbors / 2.0));
     for (int j = peak_index - num_neighbors; j <= peak_index + num_neighbors;
          ++j)
-      if (!std::isinf(laser_scan_data_.ranges[j])) {
-        sum += laser_scan_data_.ranges[j];
+      if (!std::isinf(ranges[j])) {
+        sum += ranges[j];
         divisor += 1.0;
       }
     // // we don't want the highest peak but the widest direction
@@ -481,8 +490,8 @@ void Patrol::find_safest_direction() {
     num_neighbors = static_cast<int>(floor(num_neighbors / 2.0));
     for (int j = peak_index - num_neighbors; j <= peak_index + num_neighbors;
          ++j)
-      if (!std::isinf(laser_scan_data_.ranges[j])) {
-        sum += laser_scan_data_.ranges[j];
+      if (!std::isinf(ranges[j])) {
+        sum += ranges[j];
         divisor += 1.0;
       }
     // // we don't want the highest peak but the widest direction
@@ -495,21 +504,7 @@ void Patrol::find_safest_direction() {
     v_indexed_averages.push_back(
         std::make_tuple(peak_index, peak_range, avg_qtr, avg_half, avg_full));
 
-    // if (sum > highest_sum) {
-    //   highest_sum = sum;
-    //   highest_sum_index = peak_index;
-
-    //   //   RCLCPP_INFO(this->get_logger(), "Peak index sort pos =
-    //   %d", i);
-    //   //   RCLCPP_INFO(this->get_logger(), "Peak ranges index =
-    //   %d",
-    //   //   peak_index);
-    //   RCLCPP_INFO(this->get_logger(), "Peak range = %f",
-    //               laser_scan_data_.ranges[peak_index]);
-    //   RCLCPP_INFO(this->get_logger(), "Neighbor sum of ranges =
-    //   %f\n",
-    //               highest_sum);
-    // }
+    // restore loop vars
     sum = 0.0;
     divisor = 0.00001;
     num_neighbors = NUM_NEIGHBORS;
