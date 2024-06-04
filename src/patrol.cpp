@@ -11,8 +11,9 @@
 
 #include <algorithm> // for std::sort
 #include <chrono>
-#include <cmath>   // for std::isinf(), for atan2(y, x)
-#include <utility> // for std::pair
+#include <cmath> // for std::isinf(), atan2(y, x)
+#include <tuple>
+#include <utility> // for std::pair, std::tuple
 #include <vector>
 
 #define PI_ 3.14159265359
@@ -155,9 +156,9 @@ void Patrol::velocity_callback() {
     return;
   } else if (!laser_scanner_parametrized_) {
     // data is available but scanner has not parametrized yet
-    parametrize_laser_scanner();
     RCLCPP_INFO(this->get_logger(),
                 "Parametrizing laser scanner. Velocity callback no-op.");
+    parametrize_laser_scanner();
     return;
   }
 
@@ -257,6 +258,17 @@ void Patrol::laser_scan_callback(
   RCLCPP_DEBUG(this->get_logger(), "Laser scan callback");
   laser_scan_data_ = *msg;
   have_laser_ = true;
+
+  // DEBUG: where are the inf values generated
+  int num_inf = 0;
+  for (int i = 0; i < static_cast<int>(laser_scan_data_.ranges.size()); ++i)
+    if (std::isinf(laser_scan_data_.ranges[i])) {
+      ++num_inf;
+      RCLCPP_INFO(this->get_logger(), "inf at index %d", i);
+    }
+  if (num_inf > 0)
+    RCLCPP_INFO(this->get_logger(), "Num inf in msg: %d", num_inf);
+
   RCLCPP_DEBUG(this->get_logger(), "Distance to the left is %f",
                laser_scan_data_.ranges[LEFT]);
 }
@@ -307,7 +319,8 @@ void Patrol::parametrize_laser_scanner() {
   // Amount of angle added on both sides of a direction
   // to give the robot some "peripheral" vision.
   double HALF_SPREAD = DIRECTION_SPREAD_DEG * DEG2RAD / 2.0; // in rad
-  RCLCPP_INFO(this->get_logger(), "DIRECTION_SPREAD_DEGREES = %f", DIRECTION_SPREAD_DEG);
+  RCLCPP_INFO(this->get_logger(), "DIRECTION_SPREAD_DEGREES = %f",
+              DIRECTION_SPREAD_DEG);
   RCLCPP_INFO(this->get_logger(), "HALF_SPREAD = %f", HALF_SPREAD);
 
   // TODO: indices from HALF_SPREAD and angle_increment!
@@ -346,9 +359,10 @@ void Patrol::parametrize_laser_scanner() {
   BACK_TO = BACK + SPREAD_INDICES;
   RCLCPP_INFO(this->get_logger(), "BACK = %d", BACK);
   RCLCPP_INFO(this->get_logger(), "BACK_FROM = %d", BACK_FROM);
-  RCLCPP_INFO(this->get_logger(), "BACK_TO = %d\n", BACK_TO);
+  RCLCPP_INFO(this->get_logger(), "BACK_TO = %d", BACK_TO);
 
   laser_scanner_parametrized_ = true;
+  RCLCPP_INFO(this->get_logger(), "Laser scan parametrized\n");
 }
 
 // yaw in radians
@@ -400,7 +414,9 @@ void Patrol::find_safest_direction() {
   for (int i = 0; i < static_cast<int>(laser_scan_data_.ranges.size()); ++i)
     // include only ray indices between RIGHT and LEFT (REQUIREMENT)
     if (i >= RIGHT && i <= LEFT)
-      v_indexed_ranges.push_back(std::make_pair(i, laser_scan_data_.ranges[i]));
+      if (!std::isinf(laser_scan_data_.ranges[i]))
+        v_indexed_ranges.push_back(
+            std::make_pair(i, laser_scan_data_.ranges[i]));
 
   // sort by ranges in descending order to get the peak ranges first
   std::sort(v_indexed_ranges.begin(), v_indexed_ranges.end(),
@@ -408,37 +424,133 @@ void Patrol::find_safest_direction() {
               return a.second > b.second;
             });
 
-  // for the top NUM_PEAKS, sum up their neighboring ranges
-  // (by NUM_NEIGHBORS) on both sides and keep track of the
-  // index with the largest sum
-  float highest_sum = 0, sum;
-  int highest_sum_index = -1, peak_index;
+  // for the top NUM_PEAKS, get the average of their neighboring ranges
+  // at three levels, each level on both sides:
+  // NUM_NEIGHBORS, NUM_NEIGHBORS / 2.0, NUM_NEIGHBORS / 4.0
+  // form tuples (int, double, double, double) for the index and avgs
+  // sort by avg_qtr > avg_half && avg_half > avg_full
+  // this is likely to pick the safest, and not the longest range, as
+  // it will be smoothed out on both sides, away from obstacles
+  std::vector<std::tuple<int, double, double, double, double>>
+      v_indexed_averages;
+
+  double sum = 0.0;
+  double divisor = 0.00001; // guard against accidental divide-by-zero
+  double avg_qtr, avg_half, avg_full;
+  int num_neighbors = NUM_NEIGHBORS;
+  int peak_index;
+  double peak_range;
+  //   float highest_sum = 0, sum;
+  //   int highest_sum_index = -1, peak_index;
   for (int i = 0; i < NUM_PEAKS; ++i) {
     peak_index = v_indexed_ranges[i].first;
-    for (int j = peak_index - NUM_NEIGHBORS; j <= peak_index + NUM_NEIGHBORS;
+    peak_range = v_indexed_ranges[i].second;
+
+    // avg_full
+    for (int j = peak_index - num_neighbors; j <= peak_index + num_neighbors;
          ++j)
-      sum += laser_scan_data_.ranges[j];
+      if (!std::isinf(laser_scan_data_.ranges[j])) {
+        sum += laser_scan_data_.ranges[j];
+        divisor += 1.0;
+      }
     // // we don't want the highest peak but the widest direction
     // // so remove the peak value from the sum
-    sum -= laser_scan_data_.ranges[peak_index];
-    if (sum > highest_sum) {
-      highest_sum = sum;
-      highest_sum_index = peak_index;
+    sum -= peak_range;
+    divisor -= 1.0;
+    avg_full = sum / divisor;
 
-      RCLCPP_INFO(this->get_logger(), "Peak index sort pos = %d", i);
-      RCLCPP_INFO(this->get_logger(), "Peak ranges index = %d", peak_index);
-      RCLCPP_INFO(this->get_logger(), "Peak range = %f",
-                  laser_scan_data_.ranges[peak_index]);
-      RCLCPP_INFO(this->get_logger(), "Neighbor sum of ranges = %f\n",
-                  highest_sum);
-    }
-    sum = 0;
+    // avg_half
+    sum = 0.0;
+    divisor = 0.00001;
+    num_neighbors = static_cast<int>(floor(num_neighbors / 2.0));
+    for (int j = peak_index - num_neighbors; j <= peak_index + num_neighbors;
+         ++j)
+      if (!std::isinf(laser_scan_data_.ranges[j])) {
+        sum += laser_scan_data_.ranges[j];
+        divisor += 1.0;
+      }
+    // // we don't want the highest peak but the widest direction
+    // // so remove the peak value from the sum
+    sum -= peak_range;
+    divisor -= 1.0;
+    avg_half = sum / divisor;
+
+    // avg_qtr
+    sum = 0.0;
+    divisor = 0.00001;
+    num_neighbors = static_cast<int>(floor(num_neighbors / 2.0));
+    for (int j = peak_index - num_neighbors; j <= peak_index + num_neighbors;
+         ++j)
+      if (!std::isinf(laser_scan_data_.ranges[j])) {
+        sum += laser_scan_data_.ranges[j];
+        divisor += 1.0;
+      }
+    // // we don't want the highest peak but the widest direction
+    // // so remove the peak value from the sum
+    sum -= peak_range;
+    divisor -= 1.0;
+    avg_qtr = sum / divisor;
+
+    // insert in vector for sorting
+    v_indexed_averages.push_back(
+        std::make_tuple(peak_index, peak_range, avg_qtr, avg_half, avg_full));
+
+    // if (sum > highest_sum) {
+    //   highest_sum = sum;
+    //   highest_sum_index = peak_index;
+
+    //   //   RCLCPP_INFO(this->get_logger(), "Peak index sort pos =
+    //   %d", i);
+    //   //   RCLCPP_INFO(this->get_logger(), "Peak ranges index =
+    //   %d",
+    //   //   peak_index);
+    //   RCLCPP_INFO(this->get_logger(), "Peak range = %f",
+    //               laser_scan_data_.ranges[peak_index]);
+    //   RCLCPP_INFO(this->get_logger(), "Neighbor sum of ranges =
+    //   %f\n",
+    //               highest_sum);
+    // }
+    sum = 0.0;
+    divisor = 0.00001;
+    num_neighbors = NUM_NEIGHBORS;
   }
+
+  std::sort(v_indexed_averages.begin(), v_indexed_averages.end(),
+            [](const std::tuple<int, double, double, double, double> &a,
+               const std::tuple<int, double, double, double, double> &b) {
+              /**
+                How to define a total-order sorting criterion for
+                "safer"?
+                ---
+                The idea is that the safest is the one the distribution of
+                the neighboring ranges of which is closest to an
+                upside-down quadratic or a normal. The three levels of
+                averages are defined to approximate this idea. For example,
+                if a.avg_qtr > a.avg_half and a.avg_half > a.avg_full and
+                !(b.avg_qtr > b.avg_half and b.avg_half > b.avg_full), a is
+                safer than b.
+              */
+              if ((std::get<2>(a) > std::get<3>(a) &&
+                   std::get<3>(a) > std::get<4>(a)) &&
+                  !(std::get<2>(b) > std::get<3>(b) &&
+                    std::get<3>(b) > std::get<4>(b)))
+                return true;
+              else if (!(std::get<2>(a) > std::get<3>(a) &&
+                         std::get<3>(a) > std::get<4>(a)) &&
+                       (std::get<2>(b) > std::get<3>(b) &&
+                        std::get<3>(b) > std::get<4>(b)))
+                return false;
+              else
+                return std::get<1>(a) > std::get<1>(b);
+            });
 
   // for the highest_sum_index, calculate the angle
   // negative - CW, positive - CCW
   // angle_increment is in radians
-  direction_ = (highest_sum_index - FRONT) * laser_scan_data_.angle_increment;
+  //   direction_ =
+  //       (highest_sum_index - FRONT) * laser_scan_data_.angle_increment;
+  auto t = v_indexed_averages[0];
+  direction_ = (std::get<0>(t) - FRONT) * laser_scan_data_.angle_increment;
 }
 
 double Patrol::normalize_angle(double angle) {

@@ -127,7 +127,7 @@ In short, **angle zero** being "forward along the x-axis" doesn't mean that **in
 
 ![View of the lab](assets/turtlebot-lab-camera-views.jpg)  
 
-1. Scanner values are hardcoded. Need dynamic self-parameterization. Note that indices always grow counterclockwise (CCW) from 0 to the max. Index `0` seems to be in the backward orientation of the robot.
+1. ~Scanner values are hardcoded. Need dynamic self-parameterization. Note that indices always grow counterclockwise (CCW) from 0 to the max. Index `0` seems to be in the backward orientation of the robot.~
 2. Lab scanner returns `inf` values for some ranges. `inf` is definitely generated when the range is outside [`range_min`, `range_max`. In any case, need to guard against `inf` values in ranges and either ignore or set values to one of two alternative numbers:
    1. `range_max`. or 
    2. A suitable average value for the space which is well above the obstacle threshold (**0.35 m**) but also won't throw off the calculations, esp. the sums of neighboring ray-ranges for the peak ranges. The space is about **2.0 m x 1.8 m**.
