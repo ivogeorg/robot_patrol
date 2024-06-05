@@ -185,6 +185,7 @@ The actual TurtleBot3 lab.
    1. count the `inf` in `obstacle_in_range`
    2. a std::tuple<bool, float> return value for `is_obstacle` and the ratio of `inf` (to all)
    3. check in `State::STOPPED` or `State::FORWARD` _CONSIDER!!!_
+   4. set private `is_too_close_` and set state to `State::SOS`
 4. anomalous states _CONSIDER!!!_
    1. one `State::SOS` 
       1. pro: catch-all for anomalous situations, a unified strategy for extrication
@@ -192,3 +193,9 @@ The actual TurtleBot3 lab.
    2. `State::OSCILLATION` AND `State::TOO_CLOSE`
       1. pro: easier for pass-through
       2. con: different strategies might be redunant and/or error-prone
+   3. potential unified strategy
+      1. slowly back up until no obstacles (in front)
+      2. call `find_new_direction` with extended range? _state consistency vs less pass-through state_ _CONSIDER!!!_
+      3. reset tracking vars and set state to `State::STOPPED`
+      4. the single anomalous state can be called functionally `State::BACK_UP`
+      5. this is a multi-cycle pass-through state just like `State::TURNING`
