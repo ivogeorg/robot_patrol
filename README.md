@@ -150,13 +150,13 @@ The actual TurtleBot3 lab.
    3. New directions too close to current orientation: within tolerance of current orientation.
 
 4. `SOS` state that would relax the requirements and allow the robot to extricate itself when it detects that it is stuck. Some of the parameters to relax:
-    1. Angle to look for new directions > +/- pi. Add `extended = false` parameter to `find_safest_direction`. _Watch for wraparound. May need to normalize at the edges._
-    2. Slow backward movement (`cmd_vel_msg_.linear.x = -0.05;`) with close 360-degree monitoring of obstacles.  
-    3. Note that if the robot is somehow stuck too close to an obstacle, it might be closes than `range_min` and therefore show `inf` values!  
+   1. Angle to look for new directions > +/- pi. Add `extended = false` parameter to `find_safest_direction`. _Watch for wraparound. May need to normalize at the edges._
+   2. Slow backward movement (`cmd_vel_msg_.linear.x = -0.05;`) with close 360-degree monitoring of obstacles.  
+   3. Note that if the robot is somehow stuck too close to an obstacle, it might be closes than `range_min` and therefore show `inf` values!  
 
-5.(_advanced_) Add buffer space around obstacles to avoid the wheels catching the bases of the traffic signs. See lab camera views above.
-    1. Measure arc-width of the detected obstacles.  
-    2. Calculate the if one of the wheels might catch the obstacle.  
-    3. Modify the direction of the robot to avoid the obstacle.  
-    4. Do this dynamically throughout as obstacle widths will vary depending on the (changing) orientation relative to the robot (point of view).  
-    5. This will require the dimensions or the robot.
+5. (_advanced_) Add buffer space around obstacles to avoid the wheels catching the bases of the traffic signs. See lab camera views above.
+   1. Measure arc-width of the detected obstacles.  
+   2. Calculate the if one of the wheels might catch the obstacle.
+   3. Modify the direction of the robot to avoid the obstacle.  
+   4. Do this dynamically throughout as obstacle widths will vary depending on the (changing) orientation relative to the robot (point of view).  
+   5. This will require the dimensions or the robot.
