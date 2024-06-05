@@ -80,6 +80,8 @@ private:
   // This is more difficult because of the discontinuity
   // Use i = (i + 1) % RANGES_SIZE
   int BACK, BACK_FROM, BACK_TO;
+  // Extending the range to avoid oscillation
+  double RIGHT_EXTEND, LEFT_EXTEND;
 
   // The following help avoid "narrow" width affordances for the robot
   // A NUM_PEAKS longest ranges will be compared by the SUM of NUM_NEIGHBORS
@@ -88,9 +90,9 @@ private:
   const int NUM_PEAKS = 100;
   const int NUM_NEIGHBORS = 30;
 
-  // Range of the center of next direction (+/- pi radians) REQUIREMENT
-  const int DIR_FROM = LEFT;
-  const int DIR_TO = RIGHT;
+  //   // Range of the center of next direction (+/- pi radians) REQUIREMENT
+  //   const int DIR_FROM = LEFT;
+  //   const int DIR_TO = RIGHT;
 
   // Motion parameters
   const double VELOCITY_INCREMENT = 0.1;
@@ -120,7 +122,7 @@ private:
   void parametrize_laser_scanner();
   bool obstacle_in_range(int from, int to, double dist);
   double yaw_from_quaternion(double x, double y, double z, double w);
-  void find_safest_direction();
+  void find_safest_direction(bool extended = false);
   double normalize_angle(double angle);
   // end utility functions
 };
@@ -195,7 +197,11 @@ void Patrol::velocity_callback() {
     // find new direction
     // do not change cmd_vel_msg_
     // go to TURNING
-    find_safest_direction();
+
+    // DEBUG: try extended ranges to avoid getting stuck and/or oscillating
+    find_safest_direction(false); // true = extend side ranges
+    // end DEBUG
+
     state = State::TURNING;
     RCLCPP_INFO(this->get_logger(), "Found new direction (robot frame) %f",
                 direction_);
@@ -261,14 +267,15 @@ void Patrol::laser_scan_callback(
   have_laser_ = true;
 
   // DEBUG: where are the inf values generated
-//   int num_inf = 0;
-//   for (int i = 0; i < static_cast<int>(laser_scan_data_.ranges.size()); ++i)
-//     if (std::isinf(laser_scan_data_.ranges[i])) {
-//       ++num_inf;
-//       RCLCPP_INFO(this->get_logger(), "inf at index %d", i);
-//     }
-//   if (num_inf > 0)
-//     RCLCPP_INFO(this->get_logger(), "Num inf in msg: %d", num_inf);
+  //   int num_inf = 0;
+  //   for (int i = 0; i < static_cast<int>(laser_scan_data_.ranges.size());
+  //   ++i)
+  //     if (std::isinf(laser_scan_data_.ranges[i])) {
+  //       ++num_inf;
+  //       RCLCPP_INFO(this->get_logger(), "inf at index %d", i);
+  //     }
+  //   if (num_inf > 0)
+  //     RCLCPP_INFO(this->get_logger(), "Num inf in msg: %d", num_inf);
 
   RCLCPP_DEBUG(this->get_logger(), "Distance to the left is %f",
                laser_scan_data_.ranges[LEFT]);
@@ -316,6 +323,10 @@ void Patrol::parametrize_laser_scanner() {
   RANGE_MIN = laser_scan_data_.range_min;
   RANGE_MAX = laser_scan_data_.range_max;
   ANGLE_INCREMENT = laser_scan_data_.angle_increment;
+  RCLCPP_INFO(this->get_logger(), "RANGES_SIZE = %d", RANGES_SIZE);
+  RCLCPP_INFO(this->get_logger(), "RANGE_MIN = %f", RANGE_MIN);
+  RCLCPP_INFO(this->get_logger(), "RANGE_MAX = %f", RANGE_MAX);
+  RCLCPP_INFO(this->get_logger(), "ANGLE_INCREMENT = %f\n", ANGLE_INCREMENT);
 
   // Amount of angle added on both sides of a direction
   // to give the robot some "peripheral" vision.
@@ -324,7 +335,7 @@ void Patrol::parametrize_laser_scanner() {
               DIRECTION_SPREAD_DEG);
   RCLCPP_INFO(this->get_logger(), "HALF_SPREAD = %f", HALF_SPREAD);
 
-  // TODO: indices from HALF_SPREAD and angle_increment!
+  // Indices from HALF_SPREAD and angle_increment
   int SPREAD_INDICES = static_cast<int>(HALF_SPREAD / ANGLE_INCREMENT);
   RCLCPP_INFO(this->get_logger(), "SPREAD_INDICES = %d\n", SPREAD_INDICES);
 
@@ -361,6 +372,10 @@ void Patrol::parametrize_laser_scanner() {
   RCLCPP_INFO(this->get_logger(), "BACK = %d", BACK);
   RCLCPP_INFO(this->get_logger(), "BACK_FROM = %d", BACK_FROM);
   RCLCPP_INFO(this->get_logger(), "BACK_TO = %d", BACK_TO);
+
+  // extend to the maximum that will not overrun or underrun
+  RIGHT_EXTEND = NUM_NEIGHBORS + 1;
+  LEFT_EXTEND = RANGES_SIZE - 1 - NUM_NEIGHBORS;
 
   laser_scanner_parametrized_ = true;
   RCLCPP_INFO(this->get_logger(), "Laser scan parametrized\n");
@@ -413,17 +428,20 @@ bool Patrol::obstacle_in_range(int from, int to, double dist) {
 // }
 
 // A more sophisticated algorithm. More robust.
-void Patrol::find_safest_direction() {
+void Patrol::find_safest_direction(bool extended) {
   RCLCPP_INFO(this->get_logger(), "Looking for safest direction");
   std::vector<double> ranges(laser_scan_data_.ranges.begin(),
                              laser_scan_data_.ranges.end());
+
+  double right = (extended) ? RIGHT_EXTEND : RIGHT;
+  double left = (extended) ? LEFT_EXTEND : LEFT;
 
   // put ranges and indices into a vector for sorting
   std::vector<std::pair<int, float>> v_indexed_ranges;
   for (int i = 0; i < static_cast<int>(ranges.size()); ++i)
     // include only ray indices between RIGHT and LEFT (REQUIREMENT)
     // and not those in the FRONT spread
-    if ((i >= RIGHT && i < FRONT_FROM) || (i >= FRONT_TO && i <= LEFT))
+    if ((i >= right && i < FRONT_FROM) || (i >= FRONT_TO && i <= left))
       if (!std::isinf(ranges[i]))
         v_indexed_ranges.push_back(std::make_pair(i, ranges[i]));
 
@@ -501,8 +519,15 @@ void Patrol::find_safest_direction() {
     avg_qtr = sum / divisor;
 
     // insert in vector for sorting
+    // v_indexed_averages.push_back(
+    //     std::make_tuple(peak_index, peak_range, avg_qtr, avg_half,
+    //     avg_full));
+
+    // favor larger angles
+    // (peak_index - FRONT) * laser_scan_data_.angle_increment
     v_indexed_averages.push_back(
-        std::make_tuple(peak_index, peak_range, avg_qtr, avg_half, avg_full));
+        std::make_tuple(peak_index, abs((peak_index - FRONT) * ANGLE_INCREMENT),
+                        avg_qtr, avg_half, avg_full));
 
     // restore loop vars
     sum = 0.0;
@@ -544,8 +569,31 @@ void Patrol::find_safest_direction() {
   // angle_increment is in radians
   //   direction_ =
   //       (highest_sum_index - FRONT) * laser_scan_data_.angle_increment;
-  auto t = v_indexed_averages[0];
-  direction_ = (std::get<0>(t) - FRONT) * laser_scan_data_.angle_increment;
+  // favor rightward direction to reduce oscillations
+  int num_right = 0, num_left = 0;
+  int top_right_ix = -1, top_left_ix = -1;
+  int ix;
+  // count right dir and left dir
+  // keep track of the top ("safest") of each
+  for (auto &d : v_indexed_averages) {
+    ix = std::get<0>(d);
+    if ((ix - FRONT) * ANGLE_INCREMENT < 0.0) { // to the right
+      ++num_right;
+      if (top_right_ix < 0)
+        top_right_ix = ix;
+    } else {
+      ++num_left;
+      if (top_left_ix < 0)
+        top_left_ix = ix;
+    }
+  }
+  // pick the top of the right or left, whichever is more numerous
+  // technically, both cannot be zero and of whichever there
+  // are more, their top index cannot be invalid (-1)
+  // slight bias to the right due to >=
+  ix = (top_right_ix >= top_left_ix) ? top_right_ix : top_left_ix;
+  // negative to the right (CW), positive to the left (CCW)
+  direction_ = (ix - FRONT) * ANGLE_INCREMENT;
 }
 
 double Patrol::normalize_angle(double angle) {

@@ -128,20 +128,35 @@ In short, **angle zero** being "forward along the x-axis" doesn't mean that **in
 ![View of the lab](assets/turtlebot-lab-camera-views.jpg)  
 The actual TurtleBot3 lab.  
 
-![How the robot gets stuck](assets/turtlebot-stuck-with-safe-directions.png)  
+1. The hardest spots for the robot, where it tens to either start oscillating or (if the oscillation is actually only in the code) get stuck, are:
+   1. Corners.
+   2. Corner-like spots with traffic-sign obstacles.
+   3. Finding itself too close (around or under `min_range`) to an obstacle.
 
-1. The robot got stuck very quickly in the lab, where the obstacles are farther apart and harder to detect than the simulator. Need to:
-   1. Monitor for the state of getting stuck and possibly oscillating without positive outcome. These will be:
-      1. Count of finding new directions without movement.
-      2. New directions that are too close to current orientation and/or which automatically fall within tolerance of current orientation.
-      3. Exactly how close is the robot to an obstacle "in front".
-   2. Add an `SOS` state that would relax the requirements and allow the robot to extricate itself when it detects that it is stuck. Some of the parameters to relax:
-      1. Angle to look for new directions > +/- pi. Add `extended = false` parameter to `find_safest_direction`. _Watch for wraparound. May need to normalize at the edges._
-      2. Slow backward movement (`cmd_vel_msg_.linear.x = -0.05;`) with close 360-degree monitoring of obstacles.  
-      3. Note that if the robot is somehow stuck too close to an obstacle, it might be closes than `range_min` and therefore show `inf` values!  
-   3. (_advanced_) Add buffer space around obstacles to avoid the wheels catching the bases of the traffic signs. See lab camera views above.
-      1. Measure arc-width of the detected obstacles.  
-      2. Calculate the if one of the wheels might catch the obstacle.  
-      3. Modify the direction of the robot to avoid the obstacle.  
-      4. Do this dynamically throughout as obstacle widths will vary depending on the (changing) orientation relative to the robot (point of view).  
-      5. This will require the dimensions or the robot.
+2. Remediation measures:
+   1. Direction safety (like convex-fitting) (default/fixed).
+   2. **Bias** (optional):
+      1. Larger angles.
+      2. Larger ranges.
+   3. Randomize (optional):
+      1. Direction (left, right).
+   4. **Extend** (optional):
+      1. New direction span (from +/- pi to under +/- 2 * pi). 
+   5. **Back up** (move backward) (optional);
+
+3. Detecting problematic cases:
+   1. Oscillation: count calls to `find_safest_direction` with no significant `x, y` movement.
+   2. Too close and stuck: count `inf` values in the range `[FRONT_FROM, FRONT_TO]`.
+   3. New directions too close to current orientation: within tolerance of current orientation.
+
+4. `SOS` state that would relax the requirements and allow the robot to extricate itself when it detects that it is stuck. Some of the parameters to relax:
+    1. Angle to look for new directions > +/- pi. Add `extended = false` parameter to `find_safest_direction`. _Watch for wraparound. May need to normalize at the edges._
+    2. Slow backward movement (`cmd_vel_msg_.linear.x = -0.05;`) with close 360-degree monitoring of obstacles.  
+    3. Note that if the robot is somehow stuck too close to an obstacle, it might be closes than `range_min` and therefore show `inf` values!  
+
+5.(_advanced_) Add buffer space around obstacles to avoid the wheels catching the bases of the traffic signs. See lab camera views above.
+    1. Measure arc-width of the detected obstacles.  
+    2. Calculate the if one of the wheels might catch the obstacle.  
+    3. Modify the direction of the robot to avoid the obstacle.  
+    4. Do this dynamically throughout as obstacle widths will vary depending on the (changing) orientation relative to the robot (point of view).  
+    5. This will require the dimensions or the robot.
