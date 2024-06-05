@@ -123,7 +123,7 @@ In short, **angle zero** being "forward along the x-axis" doesn't mean that **in
                                 # the array empty.
    ```
 
-#### Requirements & todo
+#### Implementation notes
 
 ![View of the lab](assets/turtlebot-lab-camera-views.jpg)  
 The actual TurtleBot3 lab.  
@@ -160,3 +160,35 @@ The actual TurtleBot3 lab.
    3. Modify the direction of the robot to avoid the obstacle.  
    4. Do this dynamically throughout as obstacle widths will vary depending on the (changing) orientation relative to the robot (point of view).  
    5. This will require the dimensions of the robot.
+
+6. Multithreading protection.
+   1. `laser_scan_data_` or `last_laser_scan_data_`.
+
+##### TODO
+
+1. `find_safest_direction`
+   1. bias angle or range (in tuple vector for "safety" sorting)
+      1. `enum class DirSafetyBias { ANGLE, RANGE };`
+      2. `ANGLE` favors larger angles, `RANGE` favors longer ranges. Both after safety!!!
+      3. new function parameter `dir_safety_bias = DirSafetyBias::ANGLE`
+   2. direction bias
+      1. `enum class DirBias { RIGHT, LEFT, RIGHT_LEFT, NONE };`
+      2. `NONE` returns the index of the safest dir `v_indexed_averages[0]`, `LEFT_RIGHT` is based on the count of directions to the left and right.
+      3. new function parameter `dir_bias = DirBias::NONE`
+   3. deep review of the core "safety" criterion and strength of biases
+2. oscillation 
+   1. count in `State::FIND_NEW_DIR` and `State::TURNING` calls to `find_safest_direction` without significant `x, y` movement
+   2. oscillation is usually just rotational so check for no linear progress in `State::TURNING`
+   3. check the angle between the two directions _CONSIDER!!!_
+   3. set private `is_oscillating_` to `true` and set `state` to `State::SOS`
+3. too close to obstacle (possibly under `range_min`)
+   1. count the `inf` in `obstacle_in_range`
+   2. a std::tuple<bool, float> return value for `is_obstacle` and the ratio of `inf` (to all)
+   3. check in `State::STOPPED` or `State::FORWARD` _CONSIDER!!!_
+4. anomalous states _CONSIDER!!!_
+   1. one `State::SOS` 
+      1. pro: catch-all for anomalous situations, a unified strategy for extrication
+      2. con: potentially too complex for pass-through
+   2. `State::OSCILLATION` AND `State::TOO_CLOSE`
+      1. pro: easier for pass-through
+      2. con: different strategies might be redunant and/or error-prone

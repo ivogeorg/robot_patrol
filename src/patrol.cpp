@@ -394,13 +394,21 @@ bool Patrol::obstacle_in_range(int from, int to, double dist) {
   // each callback assigns
   std::vector<double> ranges(laser_scan_data_.ranges.begin(),
                              laser_scan_data_.ranges.end());
-  for (int i = from; i <= to; ++i)
+  int num_inf = 0; // DEBUG line
+  for (int i = from; i <= to; ++i) {
     // inf >> dist
+    // DEBUG span
+    if (std::isinf(ranges[i]))
+      ++num_inf;
+    // end DEBUG
     if (!std::isinf(ranges[i]))
       if (ranges[i] <= dist) {
         is_obstacle = true;
-        break;
+//        break; // DEBUG need
       }
+  }
+  RCLCPP_INFO(this->get_logger(), "Inf: %d/%d", num_inf,
+              to - from - 1); // DEBUG line
   return is_obstacle;
 }
 // The simplest algorithm. Not very robust.
@@ -517,6 +525,9 @@ void Patrol::find_safest_direction(bool extended) {
     sum -= peak_range;
     divisor -= 1.0;
     avg_qtr = sum / divisor;
+
+    // Section: DirSafetyBias
+
 
     // insert in vector for sorting
     // v_indexed_averages.push_back(
