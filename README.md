@@ -174,20 +174,19 @@ The actual TurtleBot3 lab.
    2. `too_many_turns_threshold_` ~5
 2. Track
    1. `just_turned_`
-      1. set 
-   2. `turns_` (after completing a turn)
-      1. set after completing a turn
-      2. unset ???
+      1. set in `State::TURNING`
+   2. `just_backed_up_`
+      1. set in `State::BACK_UP`
+   3. `turns_` (after completing a turn)
+      1. set after completing a turn in `State::TURNING`
+      2. unset in `State::STOPPED` when starting forward linear
 3. Report
    1. `is_oscillating_`
-      1. set in `STOPPED`
+      1. set in `State::STOPPED` _What is the purpose?_ _CONSIDER!!!_
       2. unset ???
    2. `too_close_to_obstacle_`
-      1. set in `STOPPED`
+      1. set in `State::STOPPED`
       2. unset ???
-
-
-
 
 ##### States
 
@@ -195,22 +194,26 @@ The actual TurtleBot3 lab.
 
 1. STOPPED
    0. check for anomalies
-      1. check for stuck and/or oscillating
+      1. check for oscillating, i.e. turning not moving away from an obstacle (i.e. still obstacle in front)
       2. check if too close in `std::tuple<bool, float>` from `obstacle_in_range`
    1. if anomalies => BACK_UP, FIND_NEW_DIR (extended=true, bias=ANGLE)
    2. if no anomalies, no obstacle => FORWARD
    3. if no anomalies, yes obstacle => FIND_NEW_DIR (extended=false)
+   4. if obstacle, just turned and 6 turns => `is_oscillating_ = true;`, `BACK_UP`
+   5. if no obstacle and `just_backed_up_` => set `extended_range_ = true;` and `FIND_NEW_DIR`
 2. FORWARD
    1. if obstacle => FIND_NEW_DIR (extended=false)
 3. FIND_NEW_DIR
-   1. done => TURNING
+   1. if `extended_range_`, do extended
+   2. set `extended_range_ = false;`
+   3. done => TURNING
 4. TURNING
    1. done => STOPPED
-   2. turns_ ++
-   3. `last_but_one_pos_ = last_pos_;` and `last_but_one_pos_` from odometry
-   4. need to keep the full odometry data, not just compute `yaw_`
+   2. `++turns_;`
+   3. set `just_turned_ = true;`
 5. BACK_UP
-   1. done => STOPPED
+   1. back up slowly until no obstacle around (2 * pi radians) 
+   2. set `just_backed_up_ = true;` => STOPPED
 
 
 ##### TODO
@@ -226,27 +229,20 @@ The actual TurtleBot3 lab.
       3. new function parameter `dir_bias = DirPref::NONE`
    3. deep review of the core "safety" criterion and strength of biases
 2. oscillation 
-
-
-   0. ESSENCE: `just_turned_` and there is an obstacle (in `STOPPED`)
-
-
-
-
-   1. count in `State::FIND_NEW_DIR` and `State::TURNING` calls to `find_safest_direction` without significant `x, y` movement
-   2. oscillation is usually just rotational so check for no linear progress in `State::TURNING`
+   1. ESSENCE: `just_turned_` and there is an obstacle (in `STOPPED`)
+   2. count in `State::TURNING` calls to `find_safest_direction`
    3. check the angle between the two directions _CONSIDER!!!_
-   3. set private `is_oscillating_` to `true` and set `state` to `State::SOS`
 3. too close to obstacle (possibly under `range_min`)
    1. count the `inf` in `obstacle_in_range`
    2. a std::tuple<bool, float> return value for `is_obstacle` and the ratio of `inf` (to all)
    3. check in `State::STOPPED` or `State::FORWARD` _CONSIDER!!!_
    4. set `too_close_to_obstacle_`
-4. anomalous states _CONSIDER!!!_
+4. anomalous states
    1. one `State::SOS` 
       1. pro: catch-all for anomalous situations, a unified strategy for extrication
       2. con: potentially too complex for pass-through
    2. `State::OSCILLATION` AND `State::TOO_CLOSE`
       1. pro: easier for pass-through
       2. con: different strategies might be redunant and/or error-prone
+   4. `State::BACK_UP` is best, logic in `State::STOPPED`
 
