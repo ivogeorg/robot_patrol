@@ -164,6 +164,55 @@ The actual TurtleBot3 lab.
 6. Multithreading protection.
    1. `laser_scan_data_` or `last_laser_scan_data_`.
 
+
+#### State machine
+
+##### New classes and vars
+
+1. Setup
+   1. `stuck_threshold_` (x,y-space) ~0.10 _CONSIDER!!!_
+   2. `too_many_turns_threshold_` ~5
+2. Track
+   1. `just_turned_`
+      1. set 
+   2. `turns_` (after completing a turn)
+      1. set after completing a turn
+      2. unset ???
+3. Report
+   1. `is_oscillating_`
+      1. set in `STOPPED`
+      2. unset ???
+   2. `too_close_to_obstacle_`
+      1. set in `STOPPED`
+      2. unset ???
+
+
+
+
+##### States
+
+`enum class State { STOPPED, FORWARD, FIND_NEW_DIR, TURNING, BACK_UP };`
+
+1. STOPPED
+   0. check for anomalies
+      1. check for stuck and/or oscillating
+      2. check if too close in `std::tuple<bool, float>` from `obstacle_in_range`
+   1. if anomalies => BACK_UP, FIND_NEW_DIR (extended=true, bias=ANGLE)
+   2. if no anomalies, no obstacle => FORWARD
+   3. if no anomalies, yes obstacle => FIND_NEW_DIR (extended=false)
+2. FORWARD
+   1. if obstacle => FIND_NEW_DIR (extended=false)
+3. FIND_NEW_DIR
+   1. done => TURNING
+4. TURNING
+   1. done => STOPPED
+   2. turns_ ++
+   3. `last_but_one_pos_ = last_pos_;` and `last_but_one_pos_` from odometry
+   4. need to keep the full odometry data, not just compute `yaw_`
+5. BACK_UP
+   1. done => STOPPED
+
+
 ##### TODO
 
 1. `find_safest_direction`
@@ -172,11 +221,18 @@ The actual TurtleBot3 lab.
       2. `ANGLE` favors larger angles, `RANGE` favors longer ranges. Both after safety!!!
       3. new function parameter `dir_safety_bias = DirSafetyBias::ANGLE`
    2. direction bias
-      1. `enum class DirBias { RIGHT, LEFT, RIGHT_LEFT, NONE };`
+      1. `enum class DirPref { RIGHT, LEFT, RIGHT_LEFT, NONE };`
       2. `NONE` returns the index of the safest dir `v_indexed_averages[0]`, `LEFT_RIGHT` is based on the count of directions to the left and right.
-      3. new function parameter `dir_bias = DirBias::NONE`
+      3. new function parameter `dir_bias = DirPref::NONE`
    3. deep review of the core "safety" criterion and strength of biases
 2. oscillation 
+
+
+   0. ESSENCE: `just_turned_` and there is an obstacle (in `STOPPED`)
+
+
+
+
    1. count in `State::FIND_NEW_DIR` and `State::TURNING` calls to `find_safest_direction` without significant `x, y` movement
    2. oscillation is usually just rotational so check for no linear progress in `State::TURNING`
    3. check the angle between the two directions _CONSIDER!!!_
@@ -185,6 +241,7 @@ The actual TurtleBot3 lab.
    1. count the `inf` in `obstacle_in_range`
    2. a std::tuple<bool, float> return value for `is_obstacle` and the ratio of `inf` (to all)
    3. check in `State::STOPPED` or `State::FORWARD` _CONSIDER!!!_
+   4. set `too_close_to_obstacle_`
 4. anomalous states _CONSIDER!!!_
    1. one `State::SOS` 
       1. pro: catch-all for anomalous situations, a unified strategy for extrication
@@ -192,3 +249,4 @@ The actual TurtleBot3 lab.
    2. `State::OSCILLATION` AND `State::TOO_CLOSE`
       1. pro: easier for pass-through
       2. con: different strategies might be redunant and/or error-prone
+
