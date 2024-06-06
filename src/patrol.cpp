@@ -107,7 +107,13 @@ private:
 
   // Robot state machine
   enum class State { STOPPED, FORWARD, FIND_NEW_DIR, TURNING };
-  State state;
+  State state, last_state;
+
+  // Finding safest direction to turn to at an obstacle
+  enum class DirSafetyBias { ANGLE, RANGE };
+  DirSafetyBias dir_safety_bias_; // to set in STOPPED for FIND_NEW_DIR
+  enum class DirPref { RIGHT, LEFT, RIGHT_LEFT, NONE };
+  DirPref direction_preference_; // to set in STOPPED for FIND_NEW_DIR
 
   // callbacks
   // publishers
@@ -122,7 +128,9 @@ private:
   void parametrize_laser_scanner();
   bool obstacle_in_range(int from, int to, double dist);
   double yaw_from_quaternion(double x, double y, double z, double w);
-  void find_safest_direction(bool extended = false);
+  void find_safest_direction(bool extended = false,
+                             DirSafetyBias dir_bias = DirSafetyBias::ANGLE,
+                             DirPref dir_pref = DirPref::NONE);
   double normalize_angle(double angle);
   // end utility functions
 };
@@ -142,6 +150,9 @@ Patrol::Patrol() : Node("robot_patrol_node") {
   turning_ = false;
   state = State::STOPPED;
   laser_scanner_parametrized_ = false;
+  dir_safety_bias_ =
+      DirSafetyBias::ANGLE; // RANGE might work better with safety criterion
+  direction_preference_ = DirPref::RIGHT_LEFT;
 }
 
 // callbacks
@@ -199,7 +210,10 @@ void Patrol::velocity_callback() {
     // go to TURNING
 
     // DEBUG: try extended ranges to avoid getting stuck and/or oscillating
-    find_safest_direction(false); // true = extend side ranges
+    // the following combination of arguments was pretty robust
+
+    find_safest_direction(false, DirSafetyBias::RANGE,
+                          DirPref::NONE); // true = extend side ranges
     // end DEBUG
 
     state = State::TURNING;
@@ -404,51 +418,33 @@ bool Patrol::obstacle_in_range(int from, int to, double dist) {
     if (!std::isinf(ranges[i]))
       if (ranges[i] <= dist) {
         is_obstacle = true;
-//        break; // DEBUG need
+        //        break; // DEBUG need
       }
   }
   RCLCPP_INFO(this->get_logger(), "Inf: %d/%d", num_inf,
               to - from - 1); // DEBUG line
   return is_obstacle;
 }
-// The simplest algorithm. Not very robust.
-// void Patrol::find_safest_direction() {
-//   // safest direction
-//   double largest_range = 0.0;
-//   int largest_range_index = -1;
-//   for (int i = 0; i < static_cast<int>(laser_scan_data_.ranges.size()); ++i)
-//     // include only between RIGHT and LEFT (REQUIREMENT)
-//     if (i >= RIGHT && i <= LEFT) {
-//       if (laser_scan_data_.ranges[i] > largest_range) {
-//         largest_range = laser_scan_data_.ranges[i];
-//         largest_range_index = i;
-//       }
-//     }
-//   RCLCPP_INFO(this->get_logger(), "largest_range_index %d",
-//               largest_range_index);
-//   RCLCPP_INFO(this->get_logger(), "largest_range %f", largest_range);
-//   RCLCPP_INFO(this->get_logger(), "range in front %f",
-//               laser_scan_data_.ranges[FRONT]);
-//   direction_ = (largest_range_index - FRONT) *
-//   laser_scan_data_.angle_increment;
-//   // this direction is relative to the robot
-//   // the rotation algorithm should take care of that
-// }
 
-// A more sophisticated algorithm. More robust.
-void Patrol::find_safest_direction(bool extended) {
+// A rather overengineered function implementing
+// a complicated safety criterion and sorting of
+// directions
+void Patrol::find_safest_direction(bool extended, DirSafetyBias dir_bias,
+                                   DirPref dir_pref) {
   RCLCPP_INFO(this->get_logger(), "Looking for safest direction");
   std::vector<double> ranges(laser_scan_data_.ranges.begin(),
                              laser_scan_data_.ranges.end());
 
+  // 1. (optional) Extended range
   double right = (extended) ? RIGHT_EXTEND : RIGHT;
   double left = (extended) ? LEFT_EXTEND : LEFT;
 
+  // 2. (fixed) Filter by angle and sort by range
   // put ranges and indices into a vector for sorting
   std::vector<std::pair<int, float>> v_indexed_ranges;
   for (int i = 0; i < static_cast<int>(ranges.size()); ++i)
     // include only ray indices between RIGHT and LEFT (REQUIREMENT)
-    // and not those in the FRONT spread
+    // and not those in the FRONT spread (which are checked for obstacles)
     if ((i >= right && i < FRONT_FROM) || (i >= FRONT_TO && i <= left))
       if (!std::isinf(ranges[i]))
         v_indexed_ranges.push_back(std::make_pair(i, ranges[i]));
@@ -459,6 +455,7 @@ void Patrol::find_safest_direction(bool extended) {
               return a.second > b.second;
             });
 
+  // 3. (choice of DirSafetyBias) Setup safety criterion
   // for the top NUM_PEAKS, get the average of their neighboring ranges
   // at three levels, each level on both sides:
   // NUM_NEIGHBORS, NUM_NEIGHBORS / 2.0, NUM_NEIGHBORS / 4.0
@@ -526,8 +523,21 @@ void Patrol::find_safest_direction(bool extended) {
     divisor -= 1.0;
     avg_qtr = sum / divisor;
 
-    // Section: DirSafetyBias
+    // 3.1 Set up the DirSafetyBias
 
+    double bias_variable;
+    switch (dir_bias) {
+    case DirSafetyBias::ANGLE:
+      // favor larger angles
+      bias_variable = abs((peak_index - FRONT) * ANGLE_INCREMENT);
+      break;
+    case DirSafetyBias::RANGE:
+      bias_variable = peak_range;
+      break;
+    default:
+      // default on DirSafetyBias::RANGE
+      bias_variable = peak_range;
+    }
 
     // insert in vector for sorting
     // v_indexed_averages.push_back(
@@ -536,9 +546,13 @@ void Patrol::find_safest_direction(bool extended) {
 
     // favor larger angles
     // (peak_index - FRONT) * laser_scan_data_.angle_increment
-    v_indexed_averages.push_back(
-        std::make_tuple(peak_index, abs((peak_index - FRONT) * ANGLE_INCREMENT),
-                        avg_qtr, avg_half, avg_full));
+    // v_indexed_averages.push_back(
+    //     std::make_tuple(peak_index, abs((peak_index - FRONT) *
+    //     ANGLE_INCREMENT),
+    //                     avg_qtr, avg_half, avg_full));
+
+    v_indexed_averages.push_back(std::make_tuple(peak_index, bias_variable,
+                                                 avg_qtr, avg_half, avg_full));
 
     // restore loop vars
     sum = 0.0;
@@ -546,6 +560,7 @@ void Patrol::find_safest_direction(bool extended) {
     num_neighbors = NUM_NEIGHBORS;
   }
 
+  // 4. (fixed) Sort by safety (applying DirSafetyBias)
   std::sort(v_indexed_averages.begin(), v_indexed_averages.end(),
             [](const std::tuple<int, double, double, double, double> &a,
                const std::tuple<int, double, double, double, double> &b) {
@@ -575,17 +590,17 @@ void Patrol::find_safest_direction(bool extended) {
                 return std::get<1>(a) > std::get<1>(b);
             });
 
-  // for the highest_sum_index, calculate the angle
-  // negative - CW, positive - CCW
-  // angle_increment is in radians
-  //   direction_ =
-  //       (highest_sum_index - FRONT) * laser_scan_data_.angle_increment;
-  // favor rightward direction to reduce oscillations
+  // 5. (optional, choice of DirPref) Pick direction from the sorting
+  // any but DirPref::NONE potentially defeats the safety criterion
+  int ix; // ray index to pick
   int num_right = 0, num_left = 0;
   int top_right_ix = -1, top_left_ix = -1;
-  int ix;
   // count right dir and left dir
   // keep track of the top ("safest") of each
+  // pick the top of the right or left, whichever is more numerous
+  // technically, both cannot be zero and of whichever there
+  // are more, their top index cannot be invalid (-1)
+  // slight bias to the right due to >=
   for (auto &d : v_indexed_averages) {
     ix = std::get<0>(d);
     if ((ix - FRONT) * ANGLE_INCREMENT < 0.0) { // to the right
@@ -598,12 +613,25 @@ void Patrol::find_safest_direction(bool extended) {
         top_left_ix = ix;
     }
   }
-  // pick the top of the right or left, whichever is more numerous
-  // technically, both cannot be zero and of whichever there
-  // are more, their top index cannot be invalid (-1)
-  // slight bias to the right due to >=
-  ix = (top_right_ix >= top_left_ix) ? top_right_ix : top_left_ix;
-  // negative to the right (CW), positive to the left (CCW)
+  switch (dir_pref) {
+  case DirPref::LEFT:
+    ix = top_left_ix;
+    break;
+  case DirPref::RIGHT:
+    ix = top_right_ix;
+    break;
+  case DirPref::RIGHT_LEFT:
+    ix = (top_right_ix >= top_left_ix) ? top_right_ix : top_left_ix;
+    break;
+  case DirPref::NONE:
+  default:
+    auto top_sorted = v_indexed_averages[0];
+    ix = std::get<0>(top_sorted);
+  }
+
+  // 6. (fixed) Set the new direction
+  // for the selected ray ix, calculate the angle relative to angle zero (FRONT)
+  // negative - CW, positive - CCW, angle_increment is in radians
   direction_ = (ix - FRONT) * ANGLE_INCREMENT;
 }
 

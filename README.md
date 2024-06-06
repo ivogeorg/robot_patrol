@@ -209,7 +209,9 @@ The actual TurtleBot3 lab.
    2. `++turns_;`
    3. set `just_turned_ = true;`
 5. BACK_UP
-   1. back up slowly until no obstacle around (2 * pi radians) 
+   1. back up slowly until no obstacle in FRONT spread
+   2. closely monitor obstacles in BACK
+   3. `too_many_turns_threshold_` should be even, so as to back up in a direction that is less likely to be problematic 
    2. set `just_backed_up_ = true;` => STOPPED
 
 
@@ -218,8 +220,9 @@ The actual TurtleBot3 lab.
 1. `find_safest_direction`
    1. bias angle or range (in tuple vector for "safety" sorting)
       1. `enum class DirSafetyBias { ANGLE, RANGE };`
-      2. `ANGLE` favors larger angles, `RANGE` favors longer ranges. Both after safety!!!
+      2. `ANGLE` favors larger angles, `RANGE` favors longer ranges. Bias applied after safety criterion!!!
       3. new function parameter `dir_safety_bias = DirSafetyBias::ANGLE`
+      4. defaulting on `DirSafetyBias::RANGE` might work better with safety criterion, with `DirSafetyBias::ANGLE` applied to help getting unstuck.
    2. direction bias
       1. `enum class DirPref { RIGHT, LEFT, RIGHT_LEFT, NONE };`
       2. `NONE` returns the index of the safest dir `v_indexed_averages[0]`, `LEFT_RIGHT` is based on the count of directions to the left and right.
