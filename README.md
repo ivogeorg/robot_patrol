@@ -173,11 +173,8 @@ The actual TurtleBot3 lab.
    1. `stuck_threshold_` (x,y-space) ~0.10 _CONSIDER!!!_
    2. `too_many_turns_threshold_` ~5
 2. Track
-   1. `just_turned_`
-      1. set in `State::TURNING`
-   2. `just_backed_up_`
-      1. set in `State::BACK_UP`
-   3. `turns_` (after completing a turn)
+   1. `last_state_` takes care of all the cases where state logic depends on the previous state, specifically in `State::STOPPED` when arriving from `State::TURNING` and `State::BACK_UP`.
+   2. `turns_` (after completing a turn)
       1. set after completing a turn in `State::TURNING`
       2. unset in `State::STOPPED` when starting forward linear
 3. Report
