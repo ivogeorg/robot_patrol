@@ -126,7 +126,7 @@ private:
 
   // utility functions
   void parametrize_laser_scanner();
-  bool obstacle_in_range(int from, int to, double dist);
+  std::tuple<bool, float> obstacle_in_range(int from, int to, double dist);
   double yaw_from_quaternion(double x, double y, double z, double w);
   void find_safest_direction(bool extended = false,
                              DirSafetyBias dir_bias = DirSafetyBias::ANGLE,
@@ -175,12 +175,18 @@ void Patrol::velocity_callback() {
     return;
   }
 
+  // for obstacle_in_range
+  bool is_obstacle;
+  float inf_ratio;
+
   switch (state) {
   case State::STOPPED:
     // if no obstacle in front, go to FORWARD
     // set cmd_vel_msg_.linear.x = LINEAR_BASE
     // set cmd_vel_msg_.angular.z = 0.0
-    if (!obstacle_in_range(FRONT_FROM, FRONT_TO, OBSTACLE_PROXIMITY)) {
+    std::tie(is_obstacle, inf_ratio) =
+        obstacle_in_range(FRONT_FROM, FRONT_TO, OBSTACLE_PROXIMITY);
+    if (!is_obstacle) {
       cmd_vel_msg_.linear.x = LINEAR_BASE;
       cmd_vel_msg_.angular.z = 0.0;
       state = State::FORWARD;
@@ -197,7 +203,9 @@ void Patrol::velocity_callback() {
     // if obstacle in front, go to TURNING
     // set cmd_vel_msg_.linear.x = 0.0
     // set cmd_vel_msg_.angular.z = 0.0
-    if (obstacle_in_range(FRONT_FROM, FRONT_TO, OBSTACLE_PROXIMITY)) {
+    std::tie(is_obstacle, inf_ratio) =
+        obstacle_in_range(FRONT_FROM, FRONT_TO, OBSTACLE_PROXIMITY);
+    if (is_obstacle) {
       cmd_vel_msg_.linear.x = 0.0;
       cmd_vel_msg_.angular.z = 0.0;
       state = State::FIND_NEW_DIR;
@@ -400,7 +408,8 @@ double Patrol::yaw_from_quaternion(double x, double y, double z, double w) {
   return atan2(2.0f * (w * z + x * y), w * w + x * x - y * y - z * z);
 }
 
-bool Patrol::obstacle_in_range(int from, int to, double dist) {
+std::tuple<bool, float> Patrol::obstacle_in_range(int from, int to,
+                                                  double dist) {
   bool is_obstacle = false;
   // get a stable local version
   // while it may still have values from several callbacks,
@@ -408,22 +417,17 @@ bool Patrol::obstacle_in_range(int from, int to, double dist) {
   // each callback assigns
   std::vector<double> ranges(laser_scan_data_.ranges.begin(),
                              laser_scan_data_.ranges.end());
-  int num_inf = 0; // DEBUG line
+  int num_inf = 0;
   for (int i = from; i <= to; ++i) {
-    // inf >> dist
-    // DEBUG span
     if (std::isinf(ranges[i]))
-      ++num_inf;
-    // end DEBUG
+      ++num_inf; // count `inf` values in the range
     if (!std::isinf(ranges[i]))
-      if (ranges[i] <= dist) {
+      if (ranges[i] <= dist)
         is_obstacle = true;
-        //        break; // DEBUG need
-      }
   }
-  RCLCPP_INFO(this->get_logger(), "Inf: %d/%d", num_inf,
-              to - from - 1); // DEBUG line
-  return is_obstacle;
+  RCLCPP_DEBUG(this->get_logger(), "Inf: %d/%d", num_inf,
+               to - from - 1); // DEBUG line
+  return std::make_tuple(is_obstacle, num_inf);
 }
 
 // A rather overengineered function implementing

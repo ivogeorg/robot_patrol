@@ -217,7 +217,7 @@ The actual TurtleBot3 lab.
 
 ##### TODO
 
-1. `find_safest_direction`
+1. ~`find_safest_direction`~
    1. bias angle or range (in tuple vector for "safety" sorting)
       1. `enum class DirSafetyBias { ANGLE, RANGE };`
       2. `ANGLE` favors larger angles, `RANGE` favors longer ranges. Bias applied after safety criterion!!!
