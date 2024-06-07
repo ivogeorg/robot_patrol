@@ -110,6 +110,12 @@ private:
   // Robot state machine
   enum class State { STOPPED, FORWARD, FIND_NEW_DIR, TURNING, BACK_UP };
   State state_, last_state_;
+  class InvalidStateError : public std::runtime_error {
+  public:
+    InvalidStateError(const std::string &what_arg)
+        : std::runtime_error(what_arg) {}
+    ~InvalidStateError() = default;
+  };
 
   // Finding safest direction to turn to at an obstacle
   enum class DirSafetyBias { ANGLE, RANGE };
@@ -121,7 +127,10 @@ private:
   // oscillation, stuck, too_close_to_obstacle
   bool is_oscillating_, is_too_close_to_obstacle_;
   int turns_in_a_row_;
-  bool extended_angle_range_;
+  // num consecutive turns for identifying oscillation
+  const int OSCILLATION_THRESHOLD = 6;
+  // give robot a wider choice of angles
+  bool extended_angle_range_; // should go with DirSafetyBias::ANGLE
 
   // callbacks
   // publishers
@@ -159,7 +168,7 @@ Patrol::Patrol() : Node("robot_patrol_node") {
   state_ = State::STOPPED;
   laser_scanner_parametrized_ = false;
   dir_safety_bias_ =
-      DirSafetyBias::ANGLE; // RANGE might work better with safety criterion
+      DirSafetyBias::RANGE; // RANGE works better with safety criterion
   direction_preference_ = DirPref::RIGHT_LEFT;
   turns_in_a_row_ = 0;
   is_oscillating_ = false;
@@ -193,34 +202,83 @@ void Patrol::velocity_callback() {
 
   switch (state_) {
   case State::STOPPED:
-    last_state_ = State::STOPPED;
+    // State::STOPPED is the pivotal state of the state machine
 
-    // if no obstacle in front, go to FORWARD
-    // set cmd_vel_msg_.linear.x = LINEAR_BASE
-    // set cmd_vel_msg_.angular.z = 0.0
     std::tie(is_obstacle, inf_ratio) =
         obstacle_in_range(FRONT_FROM, FRONT_TO, OBSTACLE_PROXIMITY);
-    if (!is_obstacle) {
-      cmd_vel_msg_.linear.x = LINEAR_BASE;
-      cmd_vel_msg_.angular.z = 0.0;
-      state_ = State::FORWARD;
-      RCLCPP_INFO(this->get_logger(), "Going forward...\n");
-    } else {
+
+    // The only state that has a switch (last_state_) {}
+    switch (last_state_) {
+    case State::FORWARD:
+    case State::FIND_NEW_DIR:
+      // Should not come here from these states
+      throw InvalidStateError(
+          "ERROR: (pkg: robot_patrol, src: patrol.cpp) came to "
+          "State::STOPPED from invalid last state");
+      break;
+    case State::TURNING:
+      if (!is_obstacle) {
+        cmd_vel_msg_.linear.x = LINEAR_BASE;
+        cmd_vel_msg_.angular.z = 0.0;
+        state_ = State::FORWARD;
+        RCLCPP_INFO(this->get_logger(), "Going forward...\n");
+      } else {
+        cmd_vel_msg_.linear.x = 0.0;
+        cmd_vel_msg_.angular.z = 0.0;
+        if (turns_in_a_row_ >= OSCILLATION_THRESHOLD) {
+          is_oscillating_ = true;
+          state_ = State::BACK_UP;
+        } else {
+          cmd_vel_msg_.linear.x = 0.0;
+          cmd_vel_msg_.angular.z = 0.0;
+          state_ = State::FIND_NEW_DIR;
+        }
+        RCLCPP_INFO(this->get_logger(), "Stopped. Obstacle in front");
+      }
+      break;
+    case State::BACK_UP:
+      // After backing up, find new direction and favor larger angles
       cmd_vel_msg_.linear.x = 0.0;
       cmd_vel_msg_.angular.z = 0.0;
+
+      // zero out the current count
+      turns_in_a_row_ = 0;
+
+      // find a larger angle
+      extended_angle_range_ = true;
+      dir_safety_bias_ = DirSafetyBias::ANGLE;
+
       state_ = State::FIND_NEW_DIR;
-      RCLCPP_INFO(this->get_logger(), "Stopped. Obstacle in front");
+      break;
+    case State::STOPPED:
+    default:
+      if (!is_obstacle) {
+        // first call with data after constructor
+        RCLCPP_WARN(this->get_logger(),
+                    "Warning: (pkg: robot_patrol, src: patrol.cpp) "
+                    "defaulted in State::STOPPED or came from State::STOPPED");
+        cmd_vel_msg_.linear.x = LINEAR_BASE;
+        cmd_vel_msg_.angular.z = 0.0;
+        state_ = State::FORWARD;
+        RCLCPP_INFO(this->get_logger(), "Going forward...\n");
+      } else {
+        // sanity check
+        throw InvalidStateError(
+            "ERROR: (pkg: robot_patrol, src: patrol.cpp) defaulted "
+            " in State::STOPPED or came from State::STOPPED with obstacle");
+      }
     }
+
+    last_state_ = State::STOPPED;
     break;
   case State::FORWARD:
-    last_state_ = State::FORWARD;
-
     // if no obstacle in front, stay in FORWARD
     // if obstacle in front, go to TURNING
     // set cmd_vel_msg_.linear.x = 0.0
     // set cmd_vel_msg_.angular.z = 0.0
     std::tie(is_obstacle, inf_ratio) =
         obstacle_in_range(FRONT_FROM, FRONT_TO, OBSTACLE_PROXIMITY);
+
     if (is_obstacle) {
       cmd_vel_msg_.linear.x = 0.0;
       cmd_vel_msg_.angular.z = 0.0;
@@ -235,9 +293,10 @@ void Patrol::velocity_callback() {
       is_oscillating_ = false;
       is_too_close_to_obstacle_ = false;
     }
+
+    last_state_ = State::FORWARD;
     break;
   case State::FIND_NEW_DIR:
-    last_state_ = State::FIND_NEW_DIR;
 
     // find new direction
     // do not change cmd_vel_msg_
@@ -254,10 +313,10 @@ void Patrol::velocity_callback() {
     RCLCPP_INFO(this->get_logger(), "Found new direction (robot frame) %f",
                 direction_);
     RCLCPP_DEBUG(this->get_logger(), "Starting yaw %f", yaw_);
+
+    last_state_ = State::FIND_NEW_DIR;
     break;
   case State::TURNING:
-    last_state_ = State::TURNING;
-
     // if not turned in new direction, stay at TURNING
     // issue cmd_vel_msg_.linear.x = 0.0
     // issue cmd_vel_msg_.angular.z = direction_ / 2.0
@@ -300,23 +359,20 @@ void Patrol::velocity_callback() {
       cmd_vel_msg_.angular.z = 0.0;
 
       turning_ = false;
+      ++turns_in_a_row_; // track for oscillation
       state_ = State::STOPPED;
     }
+
+    last_state_ = State::TURNING;
     break;
   case State::BACK_UP:
-    last_state_ = State::BACK_UP;
 
     // TODO
 
+    last_state_ = State::BACK_UP;
     break;
   default:
     // Should not come here!
-    class InvalidStateError : public std::runtime_error {
-    public:
-      InvalidStateError(const std::string &what_arg)
-          : std::runtime_error(what_arg) {}
-      ~InvalidStateError() = default;
-    };
     InvalidStateError err("ERROR: (pkg: robot_patrol, src: patrol.cpp) default "
                           "statement executed in state machine");
     throw err;
