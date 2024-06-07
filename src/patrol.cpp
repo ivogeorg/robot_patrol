@@ -88,6 +88,7 @@ private:
   int BACK, BACK_FROM, BACK_TO;
 
   // how far to back up, if necessary
+  double OBSTACLE_BACK_PROXIMITY;
   double BACKUP_LIMIT;
 
   // The following help avoid "narrow" width affordances for the robot
@@ -149,7 +150,8 @@ private:
 
   // utility functions
   void parametrize_laser_scanner();
-  std::tuple<bool, float> obstacle_in_range(int from, int to, double dist);
+  std::tuple<bool, float> obstacle_in_range(int from, int to, int ranges_size,
+                                            double dist);
   double yaw_from_quaternion(double x, double y, double z, double w);
   void find_safest_direction(bool extended = false,
                              DirSafetyBias dir_bias = DirSafetyBias::ANGLE,
@@ -210,8 +212,8 @@ void Patrol::velocity_callback() {
   case State::STOPPED:
     // State::STOPPED is the pivotal state of the state machine
 
-    std::tie(is_obstacle, inf_ratio) =
-        obstacle_in_range(FRONT_FROM, FRONT_TO, OBSTACLE_PROXIMITY);
+    std::tie(is_obstacle, inf_ratio) = obstacle_in_range(
+        FRONT_FROM, FRONT_TO, RANGES_SIZE, OBSTACLE_PROXIMITY);
 
     // The only state that has a switch (last_state_) {}
     switch (last_state_) {
@@ -282,8 +284,8 @@ void Patrol::velocity_callback() {
     // if obstacle in front, go to TURNING
     // set cmd_vel_msg_.linear.x = 0.0
     // set cmd_vel_msg_.angular.z = 0.0
-    std::tie(is_obstacle, inf_ratio) =
-        obstacle_in_range(FRONT_FROM, FRONT_TO, OBSTACLE_PROXIMITY);
+    std::tie(is_obstacle, inf_ratio) = obstacle_in_range(
+        FRONT_FROM, FRONT_TO, RANGES_SIZE, OBSTACLE_PROXIMITY);
 
     if (is_obstacle) {
       cmd_vel_msg_.linear.x = 0.0;
@@ -372,27 +374,26 @@ void Patrol::velocity_callback() {
     last_state_ = State::TURNING;
     break;
   case State::BACK_UP:
+    // TODO: should constrain the backing up if there isn't a
+    // close obstacle
+
+    // TODO: obstacle_in_range returns <bool, float> tuples
+
     // backup to escape oscillation between two forward positions
     // keep backing up if obstacle in front or not reached backup
     // limit
 
-    // TODO: should constrain the backing up if there isn't a 
-    // close obstacle
-
-    // TODO: in obstacle_in_range, detect discontinuity and 
-    // use %
-
-    if (obstacle_in_range(
-            FRONT_FROM, FRONT_TO,
-            OBSTACLE_PROXIMITY ||
-                !obstacle_in_range(BACK_FROM, BACK_TO, BACKUP_LIMIT))) {
-      cmd_vel_msg_.linear.x = BACKUP_BASE;
-      cmd_vel_msg_.angular.z = 0.0;
-    } else {
-      cmd_vel_msg_.linear.x = 0.0;
-      cmd_vel_msg_.angular.z = 0.0;
-      state = State::STOPPED;
-    }
+    // if (obstacle_in_range(
+    //         FRONT_FROM, FRONT_TO,
+    //         OBSTACLE_PROXIMITY ||
+    //             !obstacle_in_range(BACK_FROM, BACK_TO, BACKUP_LIMIT))) {
+    //   cmd_vel_msg_.linear.x = BACKUP_BASE;
+    //   cmd_vel_msg_.angular.z = 0.0;
+    // } else {
+    //   cmd_vel_msg_.linear.x = 0.0;
+    //   cmd_vel_msg_.angular.z = 0.0;
+    //   state = State::STOPPED;
+    // }
 
     last_state_ = State::BACK_UP;
     break;
@@ -465,7 +466,10 @@ void Patrol::parametrize_laser_scanner() {
   RCLCPP_INFO(this->get_logger(), "RANGE_MAX = %f", RANGE_MAX);
   RCLCPP_INFO(this->get_logger(), "ANGLE_INCREMENT = %f\n", ANGLE_INCREMENT);
 
-  BACKUP_LIMIT = RANGE_MIN * 1.5;
+  OBSTACLE_BACK_PROXIMITY = RANGE_MIN * 1.5;
+  BACKUP_LIMIT = OBSTACLE_BACK_PROXIMITY * 5;
+  RCLCPP_INFO(this->get_logger(), "OBSTACLE_BACK_PROXIMITY = %f\n",
+              OBSTACLE_BACK_PROXIMITY);
   RCLCPP_INFO(this->get_logger(), "BACKUP_LIMIT = %f\n", BACKUP_LIMIT);
 
   // Amount of angle added on both sides of a direction
@@ -526,22 +530,26 @@ double Patrol::yaw_from_quaternion(double x, double y, double z, double w) {
   return atan2(2.0f * (w * z + x * y), w * w + x * x - y * y - z * z);
 }
 
-std::tuple<bool, float> Patrol::obstacle_in_range(int from, int to,
-                                                  double dist) {
-  bool is_obstacle = false;
+std::tuple<bool, float>
+Patrol::obstacle_in_range(int from, int to, int ranges_size, double dist) {
   // get a stable local version
   // while it may still have values from several callbacks,
   // it is likely less inconsistent than the variable which
   // each callback assigns
   std::vector<double> ranges(laser_scan_data_.ranges.begin(),
                              laser_scan_data_.ranges.end());
+
   int num_inf = 0;
-  for (int i = from; i <= to; ++i) {
+  bool is_obstacle = false;
+
+  for (int i = from;; i = (i + 1) % ranges_size) { // circular array!
     if (std::isinf(ranges[i]))
       ++num_inf; // count `inf` values in the range
     if (!std::isinf(ranges[i]))
       if (ranges[i] <= dist)
         is_obstacle = true;
+    if (i == (to + 1) % ranges_size)
+      break; // circular array!
   }
   RCLCPP_DEBUG(this->get_logger(), "Inf: %d/%d", num_inf,
                to - from - 1); // DEBUG line
