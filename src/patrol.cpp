@@ -74,16 +74,21 @@ private:
   int RIGHT, RIGHT_FROM, RIGHT_TO;
   // Ranges index for "left"
   int LEFT, LEFT_FROM, LEFT_TO;
+  // Extending the range to avoid oscillation
+  double RIGHT_EXTEND, LEFT_EXTEND;
+
   // Ranges index for "forward"
   // This roughly protects the robot from catching a wheel on an
   // obstacle it can't sense (e.g. a traffic sign base)
   int FRONT, FRONT_FROM, FRONT_TO;
+
   // Ranges index for "back(ward)"
   // This is more difficult because of the discontinuity
   // Use i = (i + 1) % RANGES_SIZE
   int BACK, BACK_FROM, BACK_TO;
-  // Extending the range to avoid oscillation
-  double RIGHT_EXTEND, LEFT_EXTEND;
+
+  // how far to back up, if necessary
+  double BACKUP_LIMIT;
 
   // The following help avoid "narrow" width affordances for the robot
   // A NUM_PEAKS longest ranges will be compared by the SUM of NUM_NEIGHBORS
@@ -100,6 +105,7 @@ private:
   const double VELOCITY_INCREMENT = 0.1;
   const double ANGULAR_BASE = 0.5;
   const double LINEAR_BASE = 0.1; // REQUIREMENT
+  const double BACKUP_BASE = -0.05;
   const double OBSTACLE_PROXIMITY = 0.35;
   const double ANGULAR_TOLERANCE_DEG = 1.5;
   const double ANGULAR_TOLERANCE = ANGULAR_TOLERANCE_DEG * DEG2RAD;
@@ -366,8 +372,27 @@ void Patrol::velocity_callback() {
     last_state_ = State::TURNING;
     break;
   case State::BACK_UP:
+    // backup to escape oscillation between two forward positions
+    // keep backing up if obstacle in front or not reached backup
+    // limit
 
-    // TODO
+    // TODO: should constrain the backing up if there isn't a 
+    // close obstacle
+
+    // TODO: in obstacle_in_range, detect discontinuity and 
+    // use %
+
+    if (obstacle_in_range(
+            FRONT_FROM, FRONT_TO,
+            OBSTACLE_PROXIMITY ||
+                !obstacle_in_range(BACK_FROM, BACK_TO, BACKUP_LIMIT))) {
+      cmd_vel_msg_.linear.x = BACKUP_BASE;
+      cmd_vel_msg_.angular.z = 0.0;
+    } else {
+      cmd_vel_msg_.linear.x = 0.0;
+      cmd_vel_msg_.angular.z = 0.0;
+      state = State::STOPPED;
+    }
 
     last_state_ = State::BACK_UP;
     break;
@@ -439,6 +464,9 @@ void Patrol::parametrize_laser_scanner() {
   RCLCPP_INFO(this->get_logger(), "RANGE_MIN = %f", RANGE_MIN);
   RCLCPP_INFO(this->get_logger(), "RANGE_MAX = %f", RANGE_MAX);
   RCLCPP_INFO(this->get_logger(), "ANGLE_INCREMENT = %f\n", ANGLE_INCREMENT);
+
+  BACKUP_LIMIT = RANGE_MIN * 1.5;
+  RCLCPP_INFO(this->get_logger(), "BACKUP_LIMIT = %f\n", BACKUP_LIMIT);
 
   // Amount of angle added on both sides of a direction
   // to give the robot some "peripheral" vision.
