@@ -2,6 +2,7 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/detail/odometry__struct.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "rclcpp/exceptions/exceptions.hpp"
 #include "sensor_msgs/msg/detail/laser_scan__struct.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 
@@ -11,7 +12,8 @@
 
 #include <algorithm> // for std::sort
 #include <chrono>
-#include <cmath> // for std::isinf(), atan2(y, x)
+#include <cmath>     // for std::isinf(), atan2(y, x)
+#include <stdexcept> // for InvalidStateError
 #include <tuple>
 #include <utility> // for std::pair, std::tuple
 #include <vector>
@@ -106,14 +108,20 @@ private:
   const double FLOAT_COMPARISON_TOLERANCE = 1e-9;
 
   // Robot state machine
-  enum class State { STOPPED, FORWARD, FIND_NEW_DIR, TURNING };
-  State state, last_state;
+  enum class State { STOPPED, FORWARD, FIND_NEW_DIR, TURNING, BACK_UP };
+  State state_, last_state_;
 
   // Finding safest direction to turn to at an obstacle
   enum class DirSafetyBias { ANGLE, RANGE };
   DirSafetyBias dir_safety_bias_; // to set in STOPPED for FIND_NEW_DIR
   enum class DirPref { RIGHT, LEFT, RIGHT_LEFT, NONE };
   DirPref direction_preference_; // to set in STOPPED for FIND_NEW_DIR
+
+  // setup, tracking, reporting, and handling anomalous situations
+  // oscillation, stuck, too_close_to_obstacle
+  bool is_oscillating_, is_too_close_to_obstacle_;
+  int turns_in_a_row_;
+  bool extended_angle_range_;
 
   // callbacks
   // publishers
@@ -148,11 +156,15 @@ Patrol::Patrol() : Node("robot_patrol_node") {
   have_laser_ = false;
   have_odom_ = false;
   turning_ = false;
-  state = State::STOPPED;
+  state_ = State::STOPPED;
   laser_scanner_parametrized_ = false;
   dir_safety_bias_ =
       DirSafetyBias::ANGLE; // RANGE might work better with safety criterion
   direction_preference_ = DirPref::RIGHT_LEFT;
+  turns_in_a_row_ = 0;
+  is_oscillating_ = false;
+  is_too_close_to_obstacle_ = false;
+  extended_angle_range_ = false;
 }
 
 // callbacks
@@ -179,8 +191,10 @@ void Patrol::velocity_callback() {
   bool is_obstacle;
   float inf_ratio;
 
-  switch (state) {
+  switch (state_) {
   case State::STOPPED:
+    last_state_ = State::STOPPED;
+
     // if no obstacle in front, go to FORWARD
     // set cmd_vel_msg_.linear.x = LINEAR_BASE
     // set cmd_vel_msg_.angular.z = 0.0
@@ -189,16 +203,18 @@ void Patrol::velocity_callback() {
     if (!is_obstacle) {
       cmd_vel_msg_.linear.x = LINEAR_BASE;
       cmd_vel_msg_.angular.z = 0.0;
-      state = State::FORWARD;
-      RCLCPP_INFO(this->get_logger(), "Going forward");
+      state_ = State::FORWARD;
+      RCLCPP_INFO(this->get_logger(), "Going forward...\n");
     } else {
       cmd_vel_msg_.linear.x = 0.0;
       cmd_vel_msg_.angular.z = 0.0;
-      state = State::FIND_NEW_DIR;
+      state_ = State::FIND_NEW_DIR;
       RCLCPP_INFO(this->get_logger(), "Stopped. Obstacle in front");
     }
     break;
   case State::FORWARD:
+    last_state_ = State::FORWARD;
+
     // if no obstacle in front, stay in FORWARD
     // if obstacle in front, go to TURNING
     // set cmd_vel_msg_.linear.x = 0.0
@@ -208,11 +224,21 @@ void Patrol::velocity_callback() {
     if (is_obstacle) {
       cmd_vel_msg_.linear.x = 0.0;
       cmd_vel_msg_.angular.z = 0.0;
-      state = State::FIND_NEW_DIR;
+      state_ = State::FIND_NEW_DIR;
       RCLCPP_INFO(this->get_logger(), "Obstacle in front, stopping");
+    } else {
+      cmd_vel_msg_.linear.x = LINEAR_BASE;
+      cmd_vel_msg_.angular.z = 0.0;
+
+      // clear all anomaly tracking and reporting variables
+      turns_in_a_row_ = 0;
+      is_oscillating_ = false;
+      is_too_close_to_obstacle_ = false;
     }
     break;
   case State::FIND_NEW_DIR:
+    last_state_ = State::FIND_NEW_DIR;
+
     // find new direction
     // do not change cmd_vel_msg_
     // go to TURNING
@@ -224,12 +250,14 @@ void Patrol::velocity_callback() {
                           DirPref::NONE); // true = extend side ranges
     // end DEBUG
 
-    state = State::TURNING;
+    state_ = State::TURNING;
     RCLCPP_INFO(this->get_logger(), "Found new direction (robot frame) %f",
                 direction_);
     RCLCPP_DEBUG(this->get_logger(), "Starting yaw %f", yaw_);
     break;
   case State::TURNING:
+    last_state_ = State::TURNING;
+
     // if not turned in new direction, stay at TURNING
     // issue cmd_vel_msg_.linear.x = 0.0
     // issue cmd_vel_msg_.angular.z = direction_ / 2.0
@@ -272,9 +300,26 @@ void Patrol::velocity_callback() {
       cmd_vel_msg_.angular.z = 0.0;
 
       turning_ = false;
-      state = State::STOPPED;
+      state_ = State::STOPPED;
     }
     break;
+  case State::BACK_UP:
+    last_state_ = State::BACK_UP;
+
+    // TODO
+
+    break;
+  default:
+    // Should not come here!
+    class InvalidStateError : public std::runtime_error {
+    public:
+      InvalidStateError(const std::string &what_arg)
+          : std::runtime_error(what_arg) {}
+      ~InvalidStateError() = default;
+    };
+    InvalidStateError err("ERROR: (pkg: robot_patrol, src: patrol.cpp) default "
+                          "statement executed in state machine");
+    throw err;
   }
 
   // single point of publishing
@@ -287,17 +332,6 @@ void Patrol::laser_scan_callback(
   RCLCPP_DEBUG(this->get_logger(), "Laser scan callback");
   laser_scan_data_ = *msg;
   have_laser_ = true;
-
-  // DEBUG: where are the inf values generated
-  //   int num_inf = 0;
-  //   for (int i = 0; i < static_cast<int>(laser_scan_data_.ranges.size());
-  //   ++i)
-  //     if (std::isinf(laser_scan_data_.ranges[i])) {
-  //       ++num_inf;
-  //       RCLCPP_INFO(this->get_logger(), "inf at index %d", i);
-  //     }
-  //   if (num_inf > 0)
-  //     RCLCPP_INFO(this->get_logger(), "Num inf in msg: %d", num_inf);
 
   RCLCPP_DEBUG(this->get_logger(), "Distance to the left is %f",
                laser_scan_data_.ranges[LEFT]);
