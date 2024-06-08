@@ -140,6 +140,8 @@ private:
   int turns_in_a_row_;
   // num consecutive turns for identifying oscillation
   const int OSCILLATION_THRESHOLD = 6;
+  // how many of the FORWARD spread indices are `inf`
+  const double INF_RATIO_THRESHOLD = 0.4;
   // give robot a wider choice of angles
   bool extended_angle_range_; // should go with DirSafetyBias::ANGLE
 
@@ -242,8 +244,9 @@ void Patrol::velocity_callback() {
         if (turns_in_a_row_ >= OSCILLATION_THRESHOLD) {
           is_oscillating_ = true;
           state_ = State::BACK_UP;
-          RCLCPP_INFO(this->get_logger(), "Oscillation detected\n");
-          RCLCPP_INFO(this->get_logger(), "Backing up...\n");
+          RCLCPP_INFO(this->get_logger(), "  \n");
+          RCLCPP_INFO(this->get_logger(), "Oscillation detected");
+          RCLCPP_INFO(this->get_logger(), "Backing up...");
         } else {
           cmd_vel_msg_.linear.x = 0.0;
           cmd_vel_msg_.angular.z = 0.0;
@@ -259,30 +262,38 @@ void Patrol::velocity_callback() {
       // zero out the current count
       turns_in_a_row_ = 0;
       is_oscillating_ = false;
+      is_too_close_to_obstacle_ = false;
 
       // find a larger angle (find_safest_direction will restore defaults)
-      RCLCPP_INFO(this->get_logger(), "Extending the angle range to break oscillation\n");
+      RCLCPP_INFO(this->get_logger(),
+                  "Extending the angle range to search for new direction\n");
       extended_angle_range_ = true;
       dir_safety_bias_ = DirSafetyBias::ANGLE;
 
       state_ = State::FIND_NEW_DIR;
       break;
     case State::STOPPED:
-      if (!is_obstacle) {
-        // first call with data after constructor
         RCLCPP_WARN(this->get_logger(),
                     "Warning: (pkg: robot_patrol, src: patrol.cpp) "
                     "in State::STOPPED last_state_ switch, came from "
                     "State::STOPPED");
+      if (inf_ratio >= INF_RATIO_THRESHOLD) {
+        // first call with data after constructor
+        state_ = State::BACK_UP;
+        is_too_close_to_obstacle_ = true;
+        RCLCPP_INFO(this->get_logger(), "Too close to obstacle");
+        RCLCPP_INFO(this->get_logger(), "Backing up...");
+      } else if (!is_obstacle) {
+        // first call with data after constructor
         cmd_vel_msg_.linear.x = LINEAR_BASE;
         cmd_vel_msg_.angular.z = 0.0;
         state_ = State::FORWARD;
         RCLCPP_INFO(this->get_logger(), "Going forward...\n");
       } else { // stopped, with obstacle
-        RCLCPP_INFO(this->get_logger(), "Stopped. Obstacle in front");
         cmd_vel_msg_.linear.x = 0.0;
         cmd_vel_msg_.angular.z = 0.0;
         state_ = State::FIND_NEW_DIR;
+        RCLCPP_INFO(this->get_logger(), "Stopped. Obstacle in front");
       }
       break;
     default:
@@ -459,13 +470,6 @@ void Patrol::odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
 
 // utility functions
 void Patrol::parametrize_laser_scanner() {
-  // TODO:
-  // migrate private const to private variables
-  // derive variables from laser_scan_data_ message parameters
-  // perform assert checks (e.g. size of ranges * angle_increment)
-  // check for inf
-  // initialize inf substitute data
-
   // NOTE: Assuming this function won't be called before laser scan
   //       data is recieved, so `laser_scan_data_` is valid.
   // NOTE: Assuming a 2 * pi radian (360 degree) laser scanner.
