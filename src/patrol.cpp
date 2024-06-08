@@ -1,4 +1,6 @@
 #include "geometry_msgs/msg/detail/twist__struct.hpp"
+// #include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/detail/odometry__struct.hpp"
 #include "nav_msgs/msg/odometry.hpp"
@@ -33,6 +35,7 @@ public:
 
 private:
   sensor_msgs::msg::LaserScan laser_scan_data_;
+  nav_msgs::msg::Odometry odom_data_;
   geometry_msgs::msg::Twist cmd_vel_msg_;
 
   bool have_laser_;
@@ -46,7 +49,8 @@ private:
 
   double direction_; // angle in radians
   double yaw_;       // current orientation
-  bool turning_;     // if turning_ don't publish cmd_vel
+  bool turning_;     // supports pass-through code for turning
+  bool backing_up_;  // supports pass-through code for backing up
 
   // Laser scanner parametrization and smoothing
 
@@ -107,7 +111,7 @@ private:
   const double ANGULAR_BASE = 0.5;
   const double LINEAR_BASE = 0.1; // REQUIREMENT
   const double BACKUP_BASE = -0.05;
-  const double OBSTACLE_PROXIMITY = 0.35;
+  const double OBSTACLE_FWD_PROXIMITY = 0.35;
   const double ANGULAR_TOLERANCE_DEG = 1.5;
   const double ANGULAR_TOLERANCE = ANGULAR_TOLERANCE_DEG * DEG2RAD;
 
@@ -173,6 +177,7 @@ Patrol::Patrol() : Node("robot_patrol_node") {
   have_laser_ = false;
   have_odom_ = false;
   turning_ = false;
+  backing_up_ = false;
   state_ = State::STOPPED;
   laser_scanner_parametrized_ = false;
   dir_safety_bias_ =
@@ -213,7 +218,7 @@ void Patrol::velocity_callback() {
     // State::STOPPED is the pivotal state of the state machine
 
     std::tie(is_obstacle, inf_ratio) = obstacle_in_range(
-        FRONT_FROM, FRONT_TO, RANGES_SIZE, OBSTACLE_PROXIMITY);
+        FRONT_FROM, FRONT_TO, RANGES_SIZE, OBSTACLE_FWD_PROXIMITY);
 
     // The only state that has a switch (last_state_) {}
     switch (last_state_) {
@@ -230,18 +235,20 @@ void Patrol::velocity_callback() {
         cmd_vel_msg_.angular.z = 0.0;
         state_ = State::FORWARD;
         RCLCPP_INFO(this->get_logger(), "Going forward...\n");
-      } else {
+      } else { // obstacle in front
+        RCLCPP_INFO(this->get_logger(), "Stopped. Obstacle in front");
         cmd_vel_msg_.linear.x = 0.0;
         cmd_vel_msg_.angular.z = 0.0;
         if (turns_in_a_row_ >= OSCILLATION_THRESHOLD) {
           is_oscillating_ = true;
           state_ = State::BACK_UP;
+          RCLCPP_INFO(this->get_logger(), "Oscillation detected\n");
+          RCLCPP_INFO(this->get_logger(), "Backing up...\n");
         } else {
           cmd_vel_msg_.linear.x = 0.0;
           cmd_vel_msg_.angular.z = 0.0;
           state_ = State::FIND_NEW_DIR;
         }
-        RCLCPP_INFO(this->get_logger(), "Stopped. Obstacle in front");
       }
       break;
     case State::BACK_UP:
@@ -251,30 +258,38 @@ void Patrol::velocity_callback() {
 
       // zero out the current count
       turns_in_a_row_ = 0;
+      is_oscillating_ = false;
 
-      // find a larger angle
+      // find a larger angle (find_safest_direction will restore defaults)
+      RCLCPP_INFO(this->get_logger(), "Extending the angle range to break oscillation\n");
       extended_angle_range_ = true;
       dir_safety_bias_ = DirSafetyBias::ANGLE;
 
       state_ = State::FIND_NEW_DIR;
       break;
     case State::STOPPED:
-    default:
       if (!is_obstacle) {
         // first call with data after constructor
         RCLCPP_WARN(this->get_logger(),
                     "Warning: (pkg: robot_patrol, src: patrol.cpp) "
-                    "defaulted in State::STOPPED or came from State::STOPPED");
+                    "in State::STOPPED last_state_ switch, came from "
+                    "State::STOPPED");
         cmd_vel_msg_.linear.x = LINEAR_BASE;
         cmd_vel_msg_.angular.z = 0.0;
         state_ = State::FORWARD;
         RCLCPP_INFO(this->get_logger(), "Going forward...\n");
-      } else {
-        // sanity check
-        throw InvalidStateError(
-            "ERROR: (pkg: robot_patrol, src: patrol.cpp) defaulted "
-            " in State::STOPPED or came from State::STOPPED with obstacle");
+      } else { // stopped, with obstacle
+        RCLCPP_INFO(this->get_logger(), "Stopped. Obstacle in front");
+        cmd_vel_msg_.linear.x = 0.0;
+        cmd_vel_msg_.angular.z = 0.0;
+        state_ = State::FIND_NEW_DIR;
       }
+      break;
+    default:
+      // shouldn't come here
+      throw InvalidStateError(
+          "ERROR: (pkg: robot_patrol, src: patrol.cpp) defaulted "
+          " in State::STOPPED last_state_ switch");
     }
 
     last_state_ = State::STOPPED;
@@ -285,7 +300,7 @@ void Patrol::velocity_callback() {
     // set cmd_vel_msg_.linear.x = 0.0
     // set cmd_vel_msg_.angular.z = 0.0
     std::tie(is_obstacle, inf_ratio) = obstacle_in_range(
-        FRONT_FROM, FRONT_TO, RANGES_SIZE, OBSTACLE_PROXIMITY);
+        FRONT_FROM, FRONT_TO, RANGES_SIZE, OBSTACLE_FWD_PROXIMITY);
 
     if (is_obstacle) {
       cmd_vel_msg_.linear.x = 0.0;
@@ -305,17 +320,15 @@ void Patrol::velocity_callback() {
     last_state_ = State::FORWARD;
     break;
   case State::FIND_NEW_DIR:
-
     // find new direction
     // do not change cmd_vel_msg_
     // go to TURNING
 
-    // DEBUG: try extended ranges to avoid getting stuck and/or oscillating
-    // the following combination of arguments was pretty robust
+    // extended ranges to get unstuck and/or oscillating
 
-    find_safest_direction(false, DirSafetyBias::RANGE,
+    // globals that control range and bias can be set elsewhere
+    find_safest_direction(extended_angle_range_, dir_safety_bias_,
                           DirPref::NONE); // true = extend side ranges
-    // end DEBUG
 
     state_ = State::TURNING;
     RCLCPP_INFO(this->get_logger(), "Found new direction (robot frame) %f",
@@ -373,30 +386,42 @@ void Patrol::velocity_callback() {
 
     last_state_ = State::TURNING;
     break;
-  case State::BACK_UP:
-    // TODO: should constrain the backing up if there isn't a
-    // close obstacle
-
-    // TODO: obstacle_in_range returns <bool, float> tuples
-
+  case State::BACK_UP: {
     // backup to escape oscillation between two forward positions
     // keep backing up if obstacle in front or not reached backup
     // limit
 
-    // if (obstacle_in_range(
-    //         FRONT_FROM, FRONT_TO,
-    //         OBSTACLE_PROXIMITY ||
-    //             !obstacle_in_range(BACK_FROM, BACK_TO, BACKUP_LIMIT))) {
-    //   cmd_vel_msg_.linear.x = BACKUP_BASE;
-    //   cmd_vel_msg_.angular.z = 0.0;
-    // } else {
-    //   cmd_vel_msg_.linear.x = 0.0;
-    //   cmd_vel_msg_.angular.z = 0.0;
-    //   state = State::STOPPED;
-    // }
+    // 1. Static vars to track pass-through backing up
+    static geometry_msgs::msg::Point init_pt;
+
+    // 2. Initialize first time around
+    if (!backing_up_)
+      init_pt = odom_data_.pose.pose.position;
+
+    // 3. Get obstacle info and calculate distance backed up
+    double dx = odom_data_.pose.pose.position.x - init_pt.x;
+    double dy = odom_data_.pose.pose.position.y - init_pt.y;
+    double dz = odom_data_.pose.pose.position.z - init_pt.z;
+    double distance = sqrt(dx * dx + dy * dy + dz * dz);
+    std::tie(is_obstacle, inf_ratio) = obstacle_in_range(
+        BACK_FROM, BACK_TO, RANGES_SIZE, OBSTACLE_BACK_PROXIMITY);
+
+    // 4. Branch on still to go or done
+    if (distance < BACKUP_LIMIT && !is_obstacle) {
+      cmd_vel_msg_.linear.x = BACKUP_BASE;
+      cmd_vel_msg_.angular.z = 0.0;
+
+      backing_up_ = true;
+    } else { // reached either an obstacle or the limit
+      cmd_vel_msg_.linear.x = 0.0;
+      cmd_vel_msg_.angular.z = 0.0;
+
+      state_ = State::STOPPED;
+      backing_up_ = false;
+    }
 
     last_state_ = State::BACK_UP;
-    break;
+  } break;
   default:
     // Should not come here!
     InvalidStateError err("ERROR: (pkg: robot_patrol, src: patrol.cpp) default "
@@ -422,6 +447,7 @@ void Patrol::laser_scan_callback(
 // subscriber
 void Patrol::odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
   RCLCPP_DEBUG(this->get_logger(), "Odometry callback");
+  odom_data_ = *msg;
   have_odom_ = true;
   yaw_ = yaw_from_quaternion(
       msg->pose.pose.orientation.x, msg->pose.pose.orientation.y,
@@ -467,7 +493,7 @@ void Patrol::parametrize_laser_scanner() {
   RCLCPP_INFO(this->get_logger(), "ANGLE_INCREMENT = %f\n", ANGLE_INCREMENT);
 
   OBSTACLE_BACK_PROXIMITY = RANGE_MIN * 1.5;
-  BACKUP_LIMIT = OBSTACLE_BACK_PROXIMITY * 5;
+  BACKUP_LIMIT = OBSTACLE_BACK_PROXIMITY * 2.5;
   RCLCPP_INFO(this->get_logger(), "OBSTACLE_BACK_PROXIMITY = %f\n",
               OBSTACLE_BACK_PROXIMITY);
   RCLCPP_INFO(this->get_logger(), "BACKUP_LIMIT = %f\n", BACKUP_LIMIT);
@@ -763,6 +789,10 @@ void Patrol::find_safest_direction(bool extended, DirSafetyBias dir_bias,
   // for the selected ray ix, calculate the angle relative to angle zero (FRONT)
   // negative - CW, positive - CCW, angle_increment is in radians
   direction_ = (ix - FRONT) * ANGLE_INCREMENT;
+
+  // 7. Restore extended range and bias defaults
+  extended_angle_range_ = false;
+  dir_safety_bias_ = DirSafetyBias::RANGE;
 }
 
 double Patrol::normalize_angle(double angle) {
