@@ -251,3 +251,10 @@ The actual TurtleBot3 lab.
    3. Add buffer angle to each side. In a nested loop, this can be achieved by marking as obstacle the buffer-angle-corresponding indices on both sides of each originally identified point of a foreground obstacle.
    4. The resulting picture of obstacles represents the available ranges. Pick the middle of each as the direction candidate and sort first by width then by distance in descending order.
    5. Pick the top direction. 
+6. Find how to visualize the scanner in the simulator for `turtlebot3_gazebo`.
+   1. Find the launch file `main...`.
+   2. Find the launch descriptions referenced there.
+   3. Find the files for each package.
+   4. Find the `<visualize>` tag in the `model.sdf` file for the `burger` and/or `waffle` bot, probably the former (which is the latest model).
+   5. Find the URDF or other file with the original `<visualize>` tag that made it into the SDF file, and change to `true`. _Changing the value in the `model.sdf` file doesn't seem to be picked up._
+   6. Rebuild the project(s). Might try to do it the empty world first, if that's going to be easier somehow. 
