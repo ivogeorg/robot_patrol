@@ -218,26 +218,26 @@ The actual TurtleBot3 lab.
 ##### TODO
 
 1. ~`find_safest_direction`~
-   1. bias angle or range (in tuple vector for "safety" sorting)
+   1. ~bias angle or range (in tuple vector for "safety" sorting)~
       1. `enum class DirSafetyBias { ANGLE, RANGE };`
       2. `ANGLE` favors larger angles, `RANGE` favors longer ranges. Bias applied after safety criterion!!!
       3. new function parameter `dir_safety_bias = DirSafetyBias::ANGLE`
       4. defaulting on `DirSafetyBias::RANGE` might work better with safety criterion, with `DirSafetyBias::ANGLE` applied to help getting unstuck.
-   2. direction bias
+   2. ~direction bias~
       1. `enum class DirPref { RIGHT, LEFT, RIGHT_LEFT, NONE };`
       2. `NONE` returns the index of the safest dir `v_indexed_averages[0]`, `LEFT_RIGHT` is based on the count of directions to the left and right.
       3. new function parameter `dir_bias = DirPref::NONE`
    3. deep review of the core "safety" criterion and strength of biases
-2. oscillation 
+2. ~oscillation~ 
    1. ESSENCE: `just_turned_` and there is an obstacle (in `STOPPED`)
    2. count in `State::TURNING` calls to `find_safest_direction`
    3. check the angle between the two directions _CONSIDER!!!_
-3. too close to obstacle (possibly under `range_min`)
+3. ~too close to obstacle (possibly under `range_min`)~
    1. count the `inf` in `obstacle_in_range`
    2. a std::tuple<bool, float> return value for `is_obstacle` and the ratio of `inf` (to all)
    3. check in `State::STOPPED` or `State::FORWARD` _CONSIDER!!!_
    4. set `too_close_to_obstacle_`
-4. anomalous states
+4. ~anomalous states~
    1. one `State::SOS` 
       1. pro: catch-all for anomalous situations, a unified strategy for extrication
       2. con: potentially too complex for pass-through
@@ -245,4 +245,9 @@ The actual TurtleBot3 lab.
       1. pro: easier for pass-through
       2. con: different strategies might be redunant and/or error-prone
    4. `State::BACK_UP` is best, logic in `State::STOPPED`
-
+5. Buffer angle (indices) for obstacles under the LIDAR plane:
+   1. It's important to distinguish between walls (background) and signs (foreground). The idea is to add buffer angles on both sides of the foreground while leaving the background unchecked.
+   2. Loop through `ranges` array and identify abrupt drops and jumps in distance. The first is the right edge, the second is the left edge, and the middle is the foreground obstacle.
+   3. Add buffer angle to each side. In a nested loop, this can be achieved by marking as obstacle the buffer-angle-corresponding indices on both sides of each originally identified point of a foreground obstacle.
+   4. The resulting picture of obstacles represents the available ranges. Pick the middle of each as the direction candidate and sort first by width then by distance in descending order.
+   5. Pick the top direction. 
