@@ -582,7 +582,7 @@ Patrol::obstacle_in_range(int from, int to, int ranges_size, double dist) {
       break; // circular array!
   }
   RCLCPP_DEBUG(this->get_logger(), "Inf: %d/%d", num_inf,
-               to - from - 1); // DEBUG line
+               to - from - 1);
   return std::make_tuple(is_obstacle, num_inf);
 }
 

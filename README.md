@@ -246,12 +246,13 @@ The actual TurtleBot3 lab.
       2. con: different strategies might be redunant and/or error-prone
    4. `State::BACK_UP` is best, logic in `State::STOPPED`
 5. Buffer angle (indices) for obstacles under the LIDAR plane:
-   1. It's important to distinguish between walls (background) and signs (foreground). The idea is to add buffer angles on both sides of the foreground while leaving the background unchecked. Get ideas from the [ros2-nav2](https://roboticsbackend.com/ros2-nav2-tutorial/) tutorial.
-   2. Loop through `ranges` array and identify abrupt drops and jumps in distance. The first is the right edge, the second is the left edge, and the middle is the foreground obstacle.
-   3. Add buffer angle to each side. In a nested loop, this can be achieved by marking as obstacle the buffer-angle-corresponding indices on both sides of each originally identified point of a foreground obstacle.
-   4. The resulting picture of obstacles represents the available ranges. Pick the middle of each as the direction candidate and sort first by width then by distance in descending order.
-   5. Pick the top direction. 
-7. Find how to visualize the scanner in the simulator for `turtlebot3_gazebo`.
+   1. It's important to distinguish between walls (background) and signs (foreground). The idea is to add buffer angles on both sides of the foreground obstacles while leaving the background unchecked. Get ideas from the [ros2-nav2](https://roboticsbackend.com/ros2-nav2-tutorial/) tutorial.
+   2. Loop through `ranges` array and identify abrupt drops and jumps in distance. Going CCW from `0` to `RANGES_SIZE`, the first will be a drop and is the right edge, the second is going to be a jump and is the left edge, with the middle being the foreground obstacle.
+   3. Add buffer angle to each side, down the indices on the right or the right edge and up the indices to the left of the left edge. In a nested loop, this can be achieved by marking as **obstacle** the buffer-angle-corresponding indices on both sides of each originally identified point of a foreground obstacle, including the edges. The buffer added may depend on the distance, smaller for farther obstacles and larger for nearer obstacles.
+   4. The resulting picture of obstacles represents the available ranges. Pick the middle of each span of available ranges as the direction candidate and sort first by width then by distance in descending order.
+   5. Pick the top direction.
+   6. _Should this be done in `obstacle_in_range` or only in `find_safest_direction`?_ 
+6. Find how to visualize the scanner in the simulator for `turtlebot3_gazebo`.
    1. Find the launch file `main...`.
    2. Find the launch descriptions referenced there.
    3. Find the files for each package.
