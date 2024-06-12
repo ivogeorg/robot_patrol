@@ -115,6 +115,14 @@ private:
   const double ANGULAR_TOLERANCE_DEG = 1.5;
   const double ANGULAR_TOLERANCE = ANGULAR_TOLERANCE_DEG * DEG2RAD;
 
+  // Distance ratio of foreground to background obstacles
+  //   ratio = range / last_range;
+  //   if (ratio < THRESHOLD)
+  //     is_obstacle = true;
+  //   else if (ratio > (1.0 / THRESHOLD))
+  //     is_obstacle = false;
+  const double F2B_RATIO = 0.5;
+
   // Misc. parameters
   const double FLOAT_COMPARISON_TOLERANCE = 1e-9;
 
@@ -450,6 +458,13 @@ void Patrol::laser_scan_callback(
     const sensor_msgs::msg::LaserScan::SharedPtr msg) {
   RCLCPP_DEBUG(this->get_logger(), "Laser scan callback");
   laser_scan_data_ = *msg;
+
+
+
+  // TODO: clean up stray inf
+
+  
+  
   have_laser_ = true;
 
   RCLCPP_DEBUG(this->get_logger(), "Distance to the left is %f",
@@ -816,24 +831,49 @@ void Patrol::find_safest_direction(bool extended) {
   double right = (extended) ? RIGHT_EXTEND : RIGHT;
   double left = (extended) ? LEFT_EXTEND : LEFT;
 
-//   // 2. (fixed) Filter by angle and sort by range
-//   // put ranges and indices into a vector for sorting
-//   std::vector<std::pair<int, float>> v_indexed_ranges;
-//   for (int i = 0; i < static_cast<int>(ranges.size()); ++i)
-//     // include only ray indices between RIGHT and LEFT (REQUIREMENT)
-//     // and not those in the FRONT spread (which are checked for obstacles)
-//     if ((i >= right && i < FRONT_FROM) || (i >= FRONT_TO && i <= left))
-//       if (!std::isinf(ranges[i]))
-//         v_indexed_ranges.push_back(std::make_pair(i, ranges[i]));
+  //   // 2. (fixed) Filter by angle and sort by range
+  //   // put ranges and indices into a vector for sorting
+  //   std::vector<std::pair<int, float>> v_indexed_ranges;
+  //   for (int i = 0; i < static_cast<int>(ranges.size()); ++i)
+  //     // include only ray indices between RIGHT and LEFT (REQUIREMENT)
+  //     // and not those in the FRONT spread (which are checked for obstacles)
+  //     if ((i >= right && i < FRONT_FROM) || (i >= FRONT_TO && i <= left))
+  //       if (!std::isinf(ranges[i]))
+  //         v_indexed_ranges.push_back(std::make_pair(i, ranges[i]));
 
-//   // sort by ranges in descending order to get the peak ranges first
-//   std::sort(v_indexed_ranges.begin(), v_indexed_ranges.end(),
-//             [](const std::pair<int, float> &a, const std::pair<int, float> &b) {
-//               return a.second > b.second;
-//             });
+  //   // sort by ranges in descending order to get the peak ranges first
+  //   std::sort(v_indexed_ranges.begin(), v_indexed_ranges.end(),
+  //             [](const std::pair<int, float> &a, const std::pair<int, float>
+  //             &b) {
+  //               return a.second > b.second;
+  //             });
 
+  // 2. Mark obstacles in the scan circular array
+  //    Need the wraparound because there might be an obstacle behind
 
+  // TODO
 
+  // 3. Extract open spans (between obstacles) in circular array
+  //    Apply right and left endpoints
+  //    Filter by width???
+
+  // TODO
+
+  // 4. Sort open spans by distance and width
+  //    Which is more important???
+  //    Take distance in the middle of the span
+
+  // TODO
+
+  // 5. (Alternatively) Sort by a safety criterion
+  //    The top direction from above might not be
+  //    the best in terms of "patrolling" behavior
+  //    Will need to set explicit buffer angles for this!
+
+  // TODO
+
+  // 6. Take the top candidate
+  //
 }
 
 double Patrol::normalize_angle(double angle) {
