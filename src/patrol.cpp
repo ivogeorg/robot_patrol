@@ -15,6 +15,7 @@
 #include <algorithm> // for std::sort
 #include <chrono>
 #include <cmath>     // for std::isinf(), atan2(y, x)
+#include <math.h>
 #include <stdexcept> // for InvalidStateError
 #include <tuple>
 #include <utility> // for std::pair, std::tuple
@@ -118,10 +119,10 @@ private:
   // Distance ratio of foreground to background obstacles
   //   ratio = range / last_range;
   //   if (ratio < THRESHOLD)
-  //     is_obstacle = true;
+  //     obs_or_clr = true;
   //   else if (ratio > (1.0 / THRESHOLD))
-  //     is_obstacle = false;
-  const double F2B_RATIO = 0.5;
+  //     obs_or_clr = false;
+  const double F2B_RATIO_THRESHOLD = 0.5;
 
   // Misc. parameters
   const double FLOAT_COMPARISON_TOLERANCE = 1e-9;
@@ -221,14 +222,14 @@ void Patrol::velocity_callback() {
   }
 
   // for obstacle_in_range
-  bool is_obstacle;
+  bool obs_or_clr;
   float inf_ratio;
 
   switch (state_) {
   case State::STOPPED:
     // State::STOPPED is the pivotal state of the state machine
 
-    std::tie(is_obstacle, inf_ratio) = obstacle_in_range(
+    std::tie(obs_or_clr, inf_ratio) = obstacle_in_range(
         FRONT_FROM, FRONT_TO, RANGES_SIZE, OBSTACLE_FWD_PROXIMITY);
 
     // The only state that has a switch (last_state_) {}
@@ -241,7 +242,7 @@ void Patrol::velocity_callback() {
           "State::STOPPED from invalid last state");
       break;
     case State::TURNING:
-      if (!is_obstacle) {
+      if (!obs_or_clr) {
         cmd_vel_msg_.linear.x = LINEAR_BASE;
         cmd_vel_msg_.angular.z = 0.0;
         state_ = State::FORWARD;
@@ -292,7 +293,7 @@ void Patrol::velocity_callback() {
         is_too_close_to_obstacle_ = true;
         RCLCPP_INFO(this->get_logger(), "Too close to obstacle");
         RCLCPP_INFO(this->get_logger(), "Backing up...");
-      } else if (!is_obstacle) {
+      } else if (!obs_or_clr) {
         // first call with data after constructor
         cmd_vel_msg_.linear.x = LINEAR_BASE;
         cmd_vel_msg_.angular.z = 0.0;
@@ -319,10 +320,10 @@ void Patrol::velocity_callback() {
     // if obstacle in front, go to TURNING
     // set cmd_vel_msg_.linear.x = 0.0
     // set cmd_vel_msg_.angular.z = 0.0
-    std::tie(is_obstacle, inf_ratio) = obstacle_in_range(
+    std::tie(obs_or_clr, inf_ratio) = obstacle_in_range(
         FRONT_FROM, FRONT_TO, RANGES_SIZE, OBSTACLE_FWD_PROXIMITY);
 
-    if (is_obstacle) {
+    if (obs_or_clr) {
       cmd_vel_msg_.linear.x = 0.0;
       cmd_vel_msg_.angular.z = 0.0;
       state_ = State::FIND_NEW_DIR;
@@ -423,11 +424,11 @@ void Patrol::velocity_callback() {
     double dy = odom_data_.pose.pose.position.y - init_pt.y;
     double dz = odom_data_.pose.pose.position.z - init_pt.z;
     double distance = sqrt(dx * dx + dy * dy + dz * dz);
-    std::tie(is_obstacle, inf_ratio) = obstacle_in_range(
+    std::tie(obs_or_clr, inf_ratio) = obstacle_in_range(
         BACK_FROM, BACK_TO, RANGES_SIZE, OBSTACLE_BACK_PROXIMITY);
 
     // 4. Branch on still to go or done
-    if (distance < BACKUP_LIMIT && !is_obstacle) {
+    if (distance < BACKUP_LIMIT && !obs_or_clr) {
       cmd_vel_msg_.linear.x = BACKUP_BASE;
       cmd_vel_msg_.angular.z = 0.0;
 
@@ -459,12 +460,28 @@ void Patrol::laser_scan_callback(
   RCLCPP_DEBUG(this->get_logger(), "Laser scan callback");
   laser_scan_data_ = *msg;
 
+  // Clean up stray inf
+  int size = static_cast<int>(laser_scan_data_.ranges.size());
+  double one, two, tri;
+  int k;                           // for circular array wraparound
+  for (int i = 0; i < size; ++i) { // [0, size-1]
+    one = laser_scan_data_.ranges[i];
+    k = (i + 1) % size;
+    two = laser_scan_data_.ranges[k]; // prevent out-of-bound access
+    tri = laser_scan_data_.ranges[k + 1];
+    if (!std::isinf(one) && std::isinf(two) && !std::isinf(tri))
+      // assign the previous value, preserving discontinuity
+      laser_scan_data_.ranges[k] = laser_scan_data_.ranges[i];
+  }
 
+  // DEBUG
+  int inf_ct = 0;
+  for (auto &d : laser_scan_data_.ranges)
+    if (std::isinf(d))
+      ++inf_ct;
+  RCLCPP_INFO(this->get_logger(), "Num inf: %d", inf_ct);
+  // end DEBUG
 
-  // TODO: clean up stray inf
-
-  
-  
   have_laser_ = true;
 
   RCLCPP_DEBUG(this->get_logger(), "Distance to the left is %f",
@@ -586,19 +603,19 @@ Patrol::obstacle_in_range(int from, int to, int ranges_size, double dist) {
                              laser_scan_data_.ranges.end());
 
   int num_inf = 0;
-  bool is_obstacle = false;
+  bool obs_or_clr = false;
 
   for (int i = from;; i = (i + 1) % ranges_size) { // circular array!
     if (std::isinf(ranges[i]))
       ++num_inf; // count `inf` values in the range
     if (!std::isinf(ranges[i]))
       if (ranges[i] <= dist)
-        is_obstacle = true;
+        obs_or_clr = true;
     if (i == (to + 1) % ranges_size)
       break; // circular array!
   }
   RCLCPP_DEBUG(this->get_logger(), "Inf: %d/%d", num_inf, to - from - 1);
-  return std::make_tuple(is_obstacle, num_inf);
+  return std::make_tuple(obs_or_clr, num_inf);
 }
 
 // A rather overengineered function implementing
@@ -824,6 +841,7 @@ void Patrol::find_safest_direction(bool extended, DirSafetyBias dir_bias,
 // candidates will be sorted by width and range.
 void Patrol::find_safest_direction(bool extended) {
   RCLCPP_INFO(this->get_logger(), "Looking for safest direction");
+
   std::vector<double> ranges(laser_scan_data_.ranges.begin(),
                              laser_scan_data_.ranges.end());
 
@@ -850,18 +868,112 @@ void Patrol::find_safest_direction(bool extended) {
 
   // 2. Mark obstacles in the scan circular array
   //    Need the wraparound because there might be an obstacle behind
+  //    F2B_RATIO_THRESHOLD
 
-  // TODO
+  // Circular array! How to mark obstacles?
+  // The algorithm marks 1s and 0s, switching on a discontinuity,
+  // either drop or jump. Foreground obstacles are marked by a drop
+  // and after that a jump. If the first discontinuity is a drop,
+  // obstacles are the 1s; if the first discontinuity is a rise,
+  // obstacles are the 0s.
+  int size = static_cast<int>(ranges.size());
+  std::vector<bool> obstacle_or_clear(size);
+  bool obs_or_clr = false; // which is which afterwards...
+
+  // TODO: Move to class declaration
+  enum class DiscontinuityType { NONE, DROP, RISE };
+
+  DiscontinuityType disc_type = DiscontinuityType::NONE;
+  double range, next_range;
+  double ratio;
+  // The obstacles will be between the lower-indexed
+  // sides of the discontinuities.
+  int first_disc_ix; // Need for the open span extraction.
+  for (int i = 0; i < size; ++i) {
+    std::cout << i << ": " << ranges[i] << " (";
+    range = ranges[i];
+    next_range = ranges[(i + 1) % size]; // circular array
+    ratio = range / last_range;
+    if (ratio < F2B_RATIO_THRESHOLD) {
+      if (disc_type == DiscontinuityType::NONE) {
+        disc_type = DiscontinuityType::RISE; // open obst span
+        first_disc_ix = i;
+      }
+      obs_or_clr = true;
+    } else if (ratio > (1.0 / F2B_RATIO_THRESHOLD)) {
+      if (disc_type == DiscontinuityType::NONE) {
+        disc_type = DiscontinuityType::DROP; // close obst span
+        first_disc_ix = i;
+      }
+      obs_or_clr = false;
+    }
+    obstacle_or_clear[i] = obs_or_clr;
+    std::cout << obs_or_clr << ")\n";
+  }
 
   // 3. Extract open spans (between obstacles) in circular array
   //    Apply right and left endpoints
   //    Filter by width???
 
-  // TODO
+  // If the first discontinuity is a DROP, obstacles are the 1s;
+  // if the first discontinuity is a RISE, obstacles are the 0s.
+  bool obstacle_marker = (disc_type == DiscontinuityType::DROP) ? true : false;
+
+  // Extract clear spans
+  //   std::vector<std::pair<int, int>> clear_spans;
+  //   /*
+  std::vector<std::tuple<int, int, int, double>> clear_spans;
+  //   */
+  int start_ix, end_ix, middle_ix, width;
+  bool is_clear_span = false;
+
+  // Circular array
+  for (int i = first_disc_ix;; i = (i + 1) % size) {
+
+    if (obstacle_or_clear[i] == obstacle_marker) { // obstacle
+      // if open clear span, close and add clear span
+      if (is_clear_span) {
+        end_ix = i;
+
+        // computing width
+        if (start_ix < end_ix) {
+          // normal case
+          width = end_ix - start_ix - 1; // TODO: Verify!!!
+          middle_ix = static_cast<int>(lround((end_ix + start_ix) / 2.0));
+        } else {
+          // accross the discontinuity [size - 1, 0]
+          width = size - start_ix - 1 + end_ix; // TODO: Verify!!!
+
+          // TODOTODOTODO
+
+        //   middle_ix = 
+
+
+
+        }
+
+        // clear_spans.push_back(std::make_tuple(start_ix, end_ix));
+        is_clear_span = false;
+      }      // else, do nothing
+    } else { // clear
+      // if no clear span open, start a new one
+      if (!is_clear_span) {
+        is_clear_span = true;
+        start_ix = i;
+      } // else, do nothing
+    }
+
+    if (i == first_disc_ix - 1)
+      break;
+  }
 
   // 4. Sort open spans by distance and width
   //    Which is more important???
   //    Take distance in the middle of the span
+  std::sort(clear_spans.begin(), clear_spans.end(),
+            [](const std::pair<int, int> &a, const std::pair<int, int> &b) {
+              // TODO
+            });
 
   // TODO
 
