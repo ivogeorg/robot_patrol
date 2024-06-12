@@ -162,6 +162,7 @@ private:
   void find_safest_direction(bool extended = false,
                              DirSafetyBias dir_bias = DirSafetyBias::ANGLE,
                              DirPref dir_pref = DirPref::NONE);
+  void find_safest_direction(bool extended = false);
   double normalize_angle(double angle);
   // end utility functions
 };
@@ -273,10 +274,10 @@ void Patrol::velocity_callback() {
       state_ = State::FIND_NEW_DIR;
       break;
     case State::STOPPED:
-        RCLCPP_WARN(this->get_logger(),
-                    "Warning: (pkg: robot_patrol, src: patrol.cpp) "
-                    "in State::STOPPED last_state_ switch, came from "
-                    "State::STOPPED");
+      RCLCPP_WARN(this->get_logger(),
+                  "Warning: (pkg: robot_patrol, src: patrol.cpp) "
+                  "in State::STOPPED last_state_ switch, came from "
+                  "State::STOPPED");
       if (inf_ratio >= INF_RATIO_THRESHOLD) {
         // first call with data after constructor
         state_ = State::BACK_UP;
@@ -581,14 +582,14 @@ Patrol::obstacle_in_range(int from, int to, int ranges_size, double dist) {
     if (i == (to + 1) % ranges_size)
       break; // circular array!
   }
-  RCLCPP_DEBUG(this->get_logger(), "Inf: %d/%d", num_inf,
-               to - from - 1);
+  RCLCPP_DEBUG(this->get_logger(), "Inf: %d/%d", num_inf, to - from - 1);
   return std::make_tuple(is_obstacle, num_inf);
 }
 
 // A rather overengineered function implementing
 // a complicated safety criterion and sorting of
-// directions
+// directions. Vulnerable to unseen obstacles
+// below the laser scan plane, like lab obstacles.
 void Patrol::find_safest_direction(bool extended, DirSafetyBias dir_bias,
                                    DirPref dir_pref) {
   RCLCPP_INFO(this->get_logger(), "Looking for safest direction");
@@ -797,6 +798,42 @@ void Patrol::find_safest_direction(bool extended, DirSafetyBias dir_bias,
   // 7. Restore extended range and bias defaults
   extended_angle_range_ = false;
   dir_safety_bias_ = DirSafetyBias::RANGE;
+}
+
+// A more straighforward non-heuristic algorithm
+// relying on adding buffer angles on both sides
+// of "foreground" obstacles while leaving walls
+// (that is, "background") unchanged. The open
+// spans of indices will each yield a direction
+// from the middle of the span and finally the
+// candidates will be sorted by width and range.
+void Patrol::find_safest_direction(bool extended) {
+  RCLCPP_INFO(this->get_logger(), "Looking for safest direction");
+  std::vector<double> ranges(laser_scan_data_.ranges.begin(),
+                             laser_scan_data_.ranges.end());
+
+  // 1. (optional) Extended range
+  double right = (extended) ? RIGHT_EXTEND : RIGHT;
+  double left = (extended) ? LEFT_EXTEND : LEFT;
+
+//   // 2. (fixed) Filter by angle and sort by range
+//   // put ranges and indices into a vector for sorting
+//   std::vector<std::pair<int, float>> v_indexed_ranges;
+//   for (int i = 0; i < static_cast<int>(ranges.size()); ++i)
+//     // include only ray indices between RIGHT and LEFT (REQUIREMENT)
+//     // and not those in the FRONT spread (which are checked for obstacles)
+//     if ((i >= right && i < FRONT_FROM) || (i >= FRONT_TO && i <= left))
+//       if (!std::isinf(ranges[i]))
+//         v_indexed_ranges.push_back(std::make_pair(i, ranges[i]));
+
+//   // sort by ranges in descending order to get the peak ranges first
+//   std::sort(v_indexed_ranges.begin(), v_indexed_ranges.end(),
+//             [](const std::pair<int, float> &a, const std::pair<int, float> &b) {
+//               return a.second > b.second;
+//             });
+
+
+
 }
 
 double Patrol::normalize_angle(double angle) {

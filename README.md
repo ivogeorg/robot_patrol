@@ -251,6 +251,7 @@ The actual TurtleBot3 lab.
    3. Add buffer angle to each side, down the indices on the right or the right edge and up the indices to the left of the left edge. In a nested loop, this can be achieved by marking as **obstacle** the buffer-angle-corresponding indices on both sides of each originally identified point of a foreground obstacle, including the edges. The buffer added may depend on the distance, smaller for farther obstacles and larger for nearer obstacles.
    4. The resulting picture of obstacles represents the available ranges. Pick the middle of each span of available ranges as the direction candidate and sort first by width then by distance in descending order.
    5. Pick the top direction.
+   6. _Should there be a minimum width to filter by?_
    6. _Should this be done in `obstacle_in_range` or only in `find_safest_direction`?_ 
 6. Find how to visualize the scanner in the simulator for `turtlebot3_gazebo`.
    1. Find the launch file `main...`.

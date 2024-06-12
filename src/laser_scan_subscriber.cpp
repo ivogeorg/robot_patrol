@@ -30,13 +30,46 @@ void LaserScanSubscriber::laser_scan_callback(
                 msg->angle_increment);
     RCLCPP_INFO(this->get_logger(), "range_min = %f", msg->range_min);
     RCLCPP_INFO(this->get_logger(), "range_max = %f", msg->range_max);
-    RCLCPP_INFO(this->get_logger(), "ranges.size() = %ld\n", msg->ranges.size());
+    RCLCPP_INFO(this->get_logger(), "ranges.size() = %ld\n",
+                msg->ranges.size());
 
     RCLCPP_INFO(this->get_logger(), "ranges[0] = %f", msg->ranges[0]);
     RCLCPP_INFO(this->get_logger(), "ranges[164] = %f", msg->ranges[164]);
     RCLCPP_INFO(this->get_logger(), "ranges[329] = %f", msg->ranges[329]);
     RCLCPP_INFO(this->get_logger(), "ranges[494] = %f", msg->ranges[494]);
     RCLCPP_INFO(this->get_logger(), "ranges[659] = %f", msg->ranges[659]);
+
+    const double THRESHOLD = 0.5;
+    bool is_obstacle = false, is_inf = false;
+    int size = static_cast<int>(msg->ranges.size());
+    double last_range = msg->ranges[0], range;
+    double ratio;
+    for (int i = 1; i < size; ++i) {
+      std::cout << i << ": " << msg->ranges[i] << " (";
+      range = msg->ranges[i];
+
+      // NOTE:
+      // No need to check for inf, because
+      // (1) The fluke inf are going to be removed in scan_callback
+      // (2) If too close, will back up first, which will remove the rest
+
+      //   if (std::isinf(range)) {
+      //     is_inf = true;
+      //   } else {
+      //     is_inf = false;
+      // what if std::isinf(last_range) is true ???
+      ratio = range / last_range;
+      if (ratio < THRESHOLD)
+        is_obstacle = true;
+      else if (ratio > (1.0 / THRESHOLD))
+        is_obstacle = false;
+      //   }
+      //   if (is_inf)
+      //     std::cout << "inf)\n";
+      //   else
+      std::cout << is_obstacle << ")\n";
+      last_range = range;
+    }
 
     /**
         This shows that the turtlebot3 laser scan is parameterized thus:
@@ -54,7 +87,6 @@ void LaserScanSubscriber::laser_scan_callback(
           0 - backward
         164 - right
     */
-
 
     // print only once
     printed_scan_info_ = true;
