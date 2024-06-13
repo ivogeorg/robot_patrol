@@ -14,7 +14,7 @@
 
 #include <algorithm> // for std::sort
 #include <chrono>
-#include <cmath>     // for std::isinf(), atan2(y, x)
+#include <cmath> // for std::isinf(), atan2(y, x)
 #include <math.h>
 #include <stdexcept> // for InvalidStateError
 #include <tuple>
@@ -168,10 +168,10 @@ private:
   std::tuple<bool, float> obstacle_in_range(int from, int to, int ranges_size,
                                             double dist);
   double yaw_from_quaternion(double x, double y, double z, double w);
-  void find_safest_direction(bool extended = false,
-                             DirSafetyBias dir_bias = DirSafetyBias::ANGLE,
-                             DirPref dir_pref = DirPref::NONE);
-  void find_safest_direction(bool extended = false);
+  void find_direction_heuristic(bool extended = false,
+                                DirSafetyBias dir_bias = DirSafetyBias::ANGLE,
+                                DirPref dir_pref = DirPref::NONE);
+  void find_direction_midrange(bool extended = false);
   double normalize_angle(double angle);
   // end utility functions
 };
@@ -274,7 +274,7 @@ void Patrol::velocity_callback() {
       is_oscillating_ = false;
       is_too_close_to_obstacle_ = false;
 
-      // find a larger angle (find_safest_direction will restore defaults)
+      // find a larger angle (find_direction_heuristic will restore defaults)
       RCLCPP_INFO(this->get_logger(),
                   "Extending the angle range to search for new direction\n");
       extended_angle_range_ = true;
@@ -348,8 +348,14 @@ void Patrol::velocity_callback() {
     // extended ranges to get unstuck and/or oscillating
 
     // globals that control range and bias can be set elsewhere
-    find_safest_direction(extended_angle_range_, dir_safety_bias_,
-                          DirPref::NONE); // true = extend side ranges
+
+    // DEBUG
+    // debugging new algorithm
+    find_direction_midrange(false);
+    // end DEBUG
+
+    // find_direction_heuristic(extended_angle_range_, dir_safety_bias_,
+    //                       DirPref::NONE); // true = extend side ranges
 
     state_ = State::TURNING;
     RCLCPP_INFO(this->get_logger(), "Found new direction (robot frame) %f",
@@ -622,8 +628,8 @@ Patrol::obstacle_in_range(int from, int to, int ranges_size, double dist) {
 // a complicated safety criterion and sorting of
 // directions. Vulnerable to unseen obstacles
 // below the laser scan plane, like lab obstacles.
-void Patrol::find_safest_direction(bool extended, DirSafetyBias dir_bias,
-                                   DirPref dir_pref) {
+void Patrol::find_direction_heuristic(bool extended, DirSafetyBias dir_bias,
+                                      DirPref dir_pref) {
   RCLCPP_INFO(this->get_logger(), "Looking for safest direction");
   std::vector<double> ranges(laser_scan_data_.ranges.begin(),
                              laser_scan_data_.ranges.end());
@@ -839,7 +845,9 @@ void Patrol::find_safest_direction(bool extended, DirSafetyBias dir_bias,
 // spans of indices will each yield a direction
 // from the middle of the span and finally the
 // candidates will be sorted by width and range.
-void Patrol::find_safest_direction(bool extended) {
+
+// TODO: Add bool buffers parameter!
+void Patrol::find_direction_midrange(bool extended) {
   RCLCPP_INFO(this->get_logger(), "Looking for safest direction");
 
   std::vector<double> ranges(laser_scan_data_.ranges.begin(),
@@ -848,6 +856,8 @@ void Patrol::find_safest_direction(bool extended) {
   // 1. (optional) Extended range
   double right = (extended) ? RIGHT_EXTEND : RIGHT;
   double left = (extended) ? LEFT_EXTEND : LEFT;
+
+  // TODO: Enforce range!
 
   //   // 2. (fixed) Filter by angle and sort by range
   //   // put ranges and indices into a vector for sorting
@@ -893,7 +903,7 @@ void Patrol::find_safest_direction(bool extended) {
     std::cout << i << ": " << ranges[i] << " (";
     range = ranges[i];
     next_range = ranges[(i + 1) % size]; // circular array
-    ratio = range / last_range;
+    ratio = next_range / range;
     if (ratio < F2B_RATIO_THRESHOLD) {
       if (disc_type == DiscontinuityType::NONE) {
         disc_type = DiscontinuityType::RISE; // open obst span
@@ -922,9 +932,11 @@ void Patrol::find_safest_direction(bool extended) {
   // Extract clear spans
   //   std::vector<std::pair<int, int>> clear_spans;
   //   /*
-  std::vector<std::tuple<int, int, int, double>> clear_spans;
+  // width, middle_ix, distance
+  std::vector<std::tuple<int, int, double>> clear_spans;
   //   */
   int start_ix, end_ix, middle_ix, width;
+  double mid_range;
   bool is_clear_span = false;
 
   // Circular array
@@ -935,7 +947,7 @@ void Patrol::find_safest_direction(bool extended) {
       if (is_clear_span) {
         end_ix = i;
 
-        // computing width
+        // compute width and middle index
         if (start_ix < end_ix) {
           // normal case
           width = end_ix - start_ix - 1; // TODO: Verify!!!
@@ -943,16 +955,15 @@ void Patrol::find_safest_direction(bool extended) {
         } else {
           // accross the discontinuity [size - 1, 0]
           width = size - start_ix - 1 + end_ix; // TODO: Verify!!!
-
-          // TODOTODOTODO
-
-        //   middle_ix = 
-
-
-
+          middle_ix = static_cast<int>(start_ix + width / 2.0) % size;
         }
+        mid_range = ranges[middle_ix];
 
-        // clear_spans.push_back(std::make_tuple(start_ix, end_ix));
+        // append to vector
+        // width, middle_ix, distance
+        // NOTE: This leaves the door open to adding
+        //       buffer angles to foreground obstacles.
+        clear_spans.push_back(std::make_tuple(width, middle_ix, mid_range));
         is_clear_span = false;
       }      // else, do nothing
     } else { // clear
@@ -967,15 +978,12 @@ void Patrol::find_safest_direction(bool extended) {
       break;
   }
 
-  // 4. Sort open spans by distance and width
-  //    Which is more important???
-  //    Take distance in the middle of the span
+  // 4. Sort width
   std::sort(clear_spans.begin(), clear_spans.end(),
-            [](const std::pair<int, int> &a, const std::pair<int, int> &b) {
-              // TODO
+            [](const std::tuple<int, int, double> &a,
+               const std::tuple<int, int, double> &b) {
+              return std::get<0>(a) > std::get<0>(b);
             });
-
-  // TODO
 
   // 5. (Alternatively) Sort by a safety criterion
   //    The top direction from above might not be
@@ -985,7 +993,15 @@ void Patrol::find_safest_direction(bool extended) {
   // TODO
 
   // 6. Take the top candidate
-  //
+  std::tie(width, middle_ix, mid_range) = clear_spans[0];
+  direction_ = middle_ix;
+
+  // 7. Restore extended range
+  extended_angle_range_ = false;
+
+  // TODO: Anything else to restore (for other function)
+  // TODO: Clean up velocity_callback from heuristic
+  //       direction search machinery
 }
 
 double Patrol::normalize_angle(double angle) {
