@@ -265,26 +265,16 @@ The actual TurtleBot3 lab.
 
 1. ~A single `F2B_RATIO_THRESHOLD` fails in certain cases.~
    ```
-    [laser_scan_subscriber_node-1] 264: 1.80827 (0)
     [laser_scan_subscriber_node-1] 265: 1.78352 (0)
     [laser_scan_subscriber_node-1] 266: 1.76106 (0)
     [laser_scan_subscriber_node-1] 267: 1.77472 (1)   <-- caught (off-by-one`)
     [laser_scan_subscriber_node-1] 268: 0.852214 (1)  <-- caught
     [laser_scan_subscriber_node-1] 269: 0.852501 (1)
-    [laser_scan_subscriber_node-1] 270: 0.882327 (1)
-    [laser_scan_subscriber_node-1] 271: 0.86416 (1)
-    [laser_scan_subscriber_node-1] 272: 0.862503 (1)
-    [laser_scan_subscriber_node-1] 273: 0.861747 (1)
-    [laser_scan_subscriber_node-1] 274: 0.862008 (1)
-    [laser_scan_subscriber_node-1] 275: 0.872485 (1)
-    [laser_scan_subscriber_node-1] 276: 0.888668 (1)
+    ...
     [laser_scan_subscriber_node-1] 277: 0.896473 (1)
     [laser_scan_subscriber_node-1] 278: 0.884809 (1) <-- missed
     [laser_scan_subscriber_node-1] 279: 1.64608 (1)  <-- missed
     [laser_scan_subscriber_node-1] 280: 1.62386 (1)
-    [laser_scan_subscriber_node-1] 281: 1.61329 (1)
-    [laser_scan_subscriber_node-1] 282: 1.62641 (1)
-    [laser_scan_subscriber_node-1] 283: 1.60649 (1)
    ```
    1. Tune to the space.
    2. Use window average.
@@ -306,7 +296,16 @@ The actual TurtleBot3 lab.
    6. Pick the top.
 6. This algorithm is vulnerable to looking at a cascade (or pyramid) of obstacles.
    1. Dimensions of the world are approximately *2.15 x 1.85* and obstacles are no closer than 0.75 from a wall. This is a good candidate for `F2B_DIFF_THRESHOLD`.
-7. Algorith missing leading obstacle (that is, first discontinuity is a `RISE`).
+7. Algorithm missing leading obstacle (that is, first discontinuity is a `RISE`).
+   ```
+    [laser_scan_subscriber_node-1] 0: 0.354041 (0)
+    [laser_scan_subscriber_node-1] 1: 0.368825 (0)
+    ...
+    [laser_scan_subscriber_node-1] 33: 0.901688 (0)
+    [laser_scan_subscriber_node-1] 34: 0.896493 (0)
+    [laser_scan_subscriber_node-1] 35: 0.903503 (RISE, 0)
+    [laser_scan_subscriber_node-1] 36: 1.87599 (0)
+   ```
    1. Find the first discontinuity, say for indices [35, 36].
    2. Set `index_zero = 36`. 
    3. Restart circular loop at `index_zero` until `(index_zero - 1 + size) % size`.
