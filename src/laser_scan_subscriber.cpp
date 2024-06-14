@@ -18,12 +18,12 @@ private:
   bool printed_scan_info_ = false;
   enum class DiscontinuityType { NONE, DROP, RISE };
   const double F2B_RATIO_THRESHOLD = 0.5; // foreground to background
-  const double F2B_DIFF_THRESHOLD = 0.5;  // foreground to background
+  const double F2B_DIFF_THRESHOLD = 0.75;  // foreground to background
   sensor_msgs::msg::LaserScan laser_scan_data_;
   double direction_;
 
   void laser_scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
-  void find_direction_midrange();
+  void find_direction_buffers();
 };
 
 void LaserScanSubscriber::laser_scan_callback(
@@ -101,7 +101,7 @@ void LaserScanSubscriber::laser_scan_callback(
     laser_scan_data_ = *msg;
 
     // 2. Filter inf ranges
-    // Clean up stray inf
+    // Clean up stray inf (E.g. 0.5, inf, 0.45)
     int size = static_cast<int>(laser_scan_data_.ranges.size());
     double one, two, tri;
     int k;                           // for circular array wraparound
@@ -123,8 +123,8 @@ void LaserScanSubscriber::laser_scan_callback(
     std::cout << "Num inf: " << inf_ct << '\n';
     // end DEBUG
 
-    // 3. Call find_direction_midrange
-    find_direction_midrange();
+    // 3. Call find_direction_buffers
+    find_direction_buffers();
 
     // print only once
     printed_scan_info_ = true;
@@ -145,7 +145,7 @@ float32 range_max            # maximum range value [m]
 float32[] ranges             # range data [m]
 */
 
-void LaserScanSubscriber::find_direction_midrange() {
+void LaserScanSubscriber::find_direction_buffers() {
   RCLCPP_INFO(this->get_logger(), "Looking for safest direction");
 
   std::vector<double> ranges(laser_scan_data_.ranges.begin(),

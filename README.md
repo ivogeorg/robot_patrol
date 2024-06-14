@@ -304,3 +304,13 @@ The actual TurtleBot3 lab.
    4. Calculate the max range of each of the spans that are left.
    5. Sort by the range.
    6. Pick the top.
+6. This algorithm is vulnerable to looking at a cascade (or pyramid) of obstacles.
+   1. Dimensions of the world are approximately *2.15 x 1.85* and obstacles are no closer than 0.75 from a wall. This is a good candidate for `F2B_DIFF_THRESHOLD`.
+   2. Find the first discontinuity, say for indices [35, 36].
+   3. Set `index_zero = 36`. 
+   4. Restart circular loop at `index_zero` until `(index_zero - 1 + size) % size`.
+      1. If discontinuity was a `DROP`, it's the beginning of an obstacle, so start marking with `1`.
+      2. If discontinuity was a `RISE`, it's the end of an obstacle, so start marking with `0`. 
+7. (suspicious) More robust handling of `inf`.
+   1. Since `inf` does not compare, it is not caught by this algorithm.
+   2. After the non-inf a handled
