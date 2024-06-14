@@ -263,7 +263,7 @@ The actual TurtleBot3 lab.
 
 ##### Errors in `find_direction_midrange`
 
-1. A single `F2B_RATIO_THRESHOLD` fails in certain cases.
+1. ~A single `F2B_RATIO_THRESHOLD` fails in certain cases.~
    ```
     [laser_scan_subscriber_node-1] 264: 1.80827 (0)
     [laser_scan_subscriber_node-1] 265: 1.78352 (0)
@@ -297,3 +297,10 @@ The actual TurtleBot3 lab.
    2. Analyze the algorithm for marking obstacles and clear spans.
 4. Obstacle marking is off by one.
    1. Analyze where the DROP and RISE are assigned.
+5. Sorting by width is not good, because there is a huge span along the walls (background) the middle index of which will most likely point to the wall (at a very short distance), and may cause oscillation or similar crazy behavior.
+   1. Add buffer angles, roughly equal to half the width of the robot, at both ends of the clear spans.
+   2. Eliminate those which are reduced to under the width of the robot.
+   3. Note that the width of the robot in terms of degrees is different depending on the range of the obstacle. __CONSIDER!!!__
+   4. Calculate the max range of each of the spans that are left.
+   5. Sort by the range.
+   6. Pick the top.
