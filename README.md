@@ -260,3 +260,40 @@ The actual TurtleBot3 lab.
    4. Find the `<visualize>` tag in the `model.sdf` file for the `burger` and/or `waffle` bot, probably the former (which is the latest model).
    5. Find the URDF or other file with the original `<visualize>` tag that made it into the SDF file, and change to `true`. _Changing the value in the `model.sdf` file doesn't seem to be picked up._
    6. Rebuild the project(s). Might try to do it the empty world first, if that's going to be easier somehow. 
+
+##### Errors in `find_direction_midrange`
+
+1. A single `F2B_RATIO_THRESHOLD` fails in certain cases.
+   ```
+    [laser_scan_subscriber_node-1] 264: 1.80827 (0)
+    [laser_scan_subscriber_node-1] 265: 1.78352 (0)
+    [laser_scan_subscriber_node-1] 266: 1.76106 (0)
+    [laser_scan_subscriber_node-1] 267: 1.77472 (1)   <-- caught (off-by-one`)
+    [laser_scan_subscriber_node-1] 268: 0.852214 (1)  <-- caught
+    [laser_scan_subscriber_node-1] 269: 0.852501 (1)
+    [laser_scan_subscriber_node-1] 270: 0.882327 (1)
+    [laser_scan_subscriber_node-1] 271: 0.86416 (1)
+    [laser_scan_subscriber_node-1] 272: 0.862503 (1)
+    [laser_scan_subscriber_node-1] 273: 0.861747 (1)
+    [laser_scan_subscriber_node-1] 274: 0.862008 (1)
+    [laser_scan_subscriber_node-1] 275: 0.872485 (1)
+    [laser_scan_subscriber_node-1] 276: 0.888668 (1)
+    [laser_scan_subscriber_node-1] 277: 0.896473 (1)
+    [laser_scan_subscriber_node-1] 278: 0.884809 (1) <-- missed
+    [laser_scan_subscriber_node-1] 279: 1.64608 (1)  <-- missed
+    [laser_scan_subscriber_node-1] 280: 1.62386 (1)
+    [laser_scan_subscriber_node-1] 281: 1.61329 (1)
+    [laser_scan_subscriber_node-1] 282: 1.62641 (1)
+    [laser_scan_subscriber_node-1] 283: 1.60649 (1)
+   ```
+   1. Tune to the space.
+   2. Use window average.
+   3. **Switch to difference with a finite value, not a ratio, because the inverse is way too big.**
+2. A memory access error occurs at certain times.
+   1. Check all container random access.
+   2. Check circular array accesses.
+3. Clear spans count is off by one.
+   1. Check circular array tracking.
+   2. Analyze the algorithm for marking obstacles and clear spans.
+4. Obstacle marking is off by one.
+   1. Analyze where the DROP and RISE are assigned.

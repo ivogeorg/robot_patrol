@@ -1,6 +1,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/detail/laser_scan__struct.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
+#include <ostream>
 
 using std::placeholders::_1;
 
@@ -16,12 +17,13 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr subscription_;
   bool printed_scan_info_ = false;
   enum class DiscontinuityType { NONE, DROP, RISE };
-  const double F2B_RATIO_THRESHOLD = 0.5;
+  const double F2B_RATIO_THRESHOLD = 0.5; // foreground to background
+  const double F2B_DIFF_THRESHOLD = 0.5;  // foreground to background
   sensor_msgs::msg::LaserScan laser_scan_data_;
   double direction_;
 
   void laser_scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
-  void find_direction_midrange(bool extended = false);
+  void find_direction_midrange();
 };
 
 void LaserScanSubscriber::laser_scan_callback(
@@ -143,7 +145,7 @@ float32 range_max            # maximum range value [m]
 float32[] ranges             # range data [m]
 */
 
-void LaserScanSubscriber::find_direction_midrange(bool extended) {
+void LaserScanSubscriber::find_direction_midrange() {
   RCLCPP_INFO(this->get_logger(), "Looking for safest direction");
 
   std::vector<double> ranges(laser_scan_data_.ranges.begin(),
@@ -164,7 +166,8 @@ void LaserScanSubscriber::find_direction_midrange(bool extended) {
 
   DiscontinuityType disc_type = DiscontinuityType::NONE;
   double range, next_range;
-  double ratio;
+//   double ratio;
+  double diff;
   // The obstacles will be between the lower-indexed
   // sides of the discontinuities.
   int first_disc_ix; // Need for the open span extraction.
@@ -172,7 +175,8 @@ void LaserScanSubscriber::find_direction_midrange(bool extended) {
     std::cout << i << ": " << ranges[i] << " (";
     range = ranges[i];
     next_range = ranges[(i + 1) % size]; // circular array
-    ratio = next_range / range;
+    // ratio = next_range / range;
+    diff = next_range - range;
     // TODO
     // ----
     // ERROR
@@ -183,7 +187,8 @@ void LaserScanSubscriber::find_direction_midrange(bool extended) {
     //    1. Trailing average window (Vulnerable to thin obstacles)
     //    2. Convolution (Too expensive)
     //    3. Discrete derivative!!!
-    if (ratio < F2B_RATIO_THRESHOLD) {
+    if (-diff > F2B_DIFF_THRESHOLD) {
+    // if (ratio < F2B_RATIO_THRESHOLD) {
       if (disc_type == DiscontinuityType::NONE) {
         disc_type = DiscontinuityType::DROP; // open obst span
         first_disc_ix = i;
@@ -192,7 +197,8 @@ void LaserScanSubscriber::find_direction_midrange(bool extended) {
         // end DEBUG
       }
       obs_or_clr = true;
-    } else if (ratio > (1.0 / F2B_RATIO_THRESHOLD)) {
+    } else if (diff > F2B_DIFF_THRESHOLD) {
+    // } else if (ratio > (1.0 / F2B_RATIO_THRESHOLD)) {
       if (disc_type == DiscontinuityType::NONE) {
         disc_type = DiscontinuityType::RISE; // close obst span
         first_disc_ix = i;
@@ -203,7 +209,7 @@ void LaserScanSubscriber::find_direction_midrange(bool extended) {
       obs_or_clr = false;
     }
     obstacle_or_clear[i] = obs_or_clr;
-    std::cout << obs_or_clr << ")\n";
+    std::cout << obs_or_clr << ")\n" << std::flush;
   }
 
   // TODO
@@ -269,7 +275,7 @@ void LaserScanSubscriber::find_direction_midrange(bool extended) {
         std::cout << "end_ix: " << end_ix << '\n';
         std::cout << "width: " << width << '\n';
         std::cout << "middle_ix: " << middle_ix << '\n';
-        std::cout << "mid_range: " << mid_range << '\n\n';
+        std::cout << "mid_range: " << mid_range << "\n\n" << std::flush;
         // end DEBUG
 
         is_clear_span = false;
@@ -287,10 +293,11 @@ void LaserScanSubscriber::find_direction_midrange(bool extended) {
   }
 
   // DEBUG
-  std::cout << "Num clear spans in vector: " << clear_spans.size() << '\n';
+  std::cout << "Num clear spans in vector: " << clear_spans.size() << '\n'
+            << std::flush;
   // end DEBUG
 
-  // 4. Sort bywidth
+  // 4. Sort by width
   std::sort(clear_spans.begin(), clear_spans.end(),
             [](const std::tuple<int, int, double> &a,
                const std::tuple<int, int, double> &b) {
@@ -302,7 +309,7 @@ void LaserScanSubscriber::find_direction_midrange(bool extended) {
   direction_ = middle_ix;
 
   // DEBUG
-  std::cout << "direction_: " << direction_ << '\n';
+  std::cout << "direction_: " << direction_ << '\n' << std::flush;
   // end DEBUG
 }
 
