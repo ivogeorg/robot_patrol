@@ -183,20 +183,31 @@ The actual TurtleBot3 lab.
          ```
          obstacle robot
          ------- -------
-         |  *..|||..*  ||<-- b/n Klein starts is robot width (*... ..*)
+         |  *..|||..*  ||<-- b/n Klein starts is robot width (0.2)
          ----\-- |  |  |
               \   --|-- 
                \    |
-                \   |<------ half_smaller_dim (0.925)
+                \   |<------ smaller_dim (1.85)
                  \  |
                   \ |
                    \|
          ```
          1. Range to center of obstacle (left *) is `sqrt(robot_width*robot_width + half_smaller_dim*half_smaller_dim)`. Call it `obstacle_ctr_range`.
-         2. `ROBOT_WIDTH_ANGLE` is `cos(half_smaller_dim / obstacle_ctr_range)`.
-      6. Calculate `LEFT_BUFFER` and `RIGHT_BUFFER` in number of indices (`int`) from `ROBOT_HALF_WIDTH_ANGLE`.
-      7. Apply `LEFT_BUFFER` and `RIGHT_BUFFER` to the span (`std::pair`).
-      8. If width is more than `ROBOT_WIDTH_ANGLE`:
+         2. `ROBOT_WIDTH_ANGLE` is `cos(smaller_dim / obstacle_ctr_range)`. 
+         ```
+         >>> angle_increment = 0.009534446522593498
+         >>> smaller_dim = 1.85
+         >>> robot_width = 0.2
+         >>> half_smaller_dim = smaller_dim / 2.0
+         >>> obstacle_ctr_range = math.sqrt(half_smaller_dim**2 + robot_width**2)
+         >>> robot_width_angle = math.acos (half_smaller_dim / obstacle_ctr_range)
+         >>> buffer_span = robot_width_angle / angle_increment
+         >>> buffer_span
+         22.333582665213278
+         ```
+      6. Calculate `LEFT_BUFFER` and `RIGHT_BUFFER` in number of indices (`int`) from `ROBOT_WIDTH_ANGLE`. `LEFT_BUFFER = RIGHT_BUFFER = 22;`
+      7. Apply `LEFT_BUFFER` and `RIGHT_BUFFER` to the span (`std::pair`) and calculate new width.
+      8. If width is more than `2 * LEFT_BUFFER`:
          1. Find `largest_range`, the largest range in the (buffered or buffer-reduced) index span.
          2. Append `largest_range` and `largest_range_index` to `std::vector<std::pair<double, int>> clear_spans;`.
       9. Sort `clear_spans` by range in descending order.
