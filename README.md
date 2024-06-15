@@ -179,7 +179,21 @@ The actual TurtleBot3 lab.
       2. From `index_zero` to `(index_zero - 1 + size) % size`.
       3. Identify `span_start_ix` and `span_end_ix`. _Put in a `std::pair`?_
       4. Calculate width of clear span. **Note:** Circular array! Spans should be monolithic across the discontinuity `[size - 1, 0]`.
-      5. Define `ROBOT_WIDTH_ANGLE` and `ROBOT_HALF_WIDTH_ANGLE` in radians (`double`). Define for a robot that is `OBSTACLE_FORWARD_PROXIMITY` from two obstacles it is trying to move between.
+      5. Define `ROBOT_WIDTH_ANGLE` and `ROBOT_HALF_WIDTH_ANGLE` in radians (`double`). Define for a robot that is half of `SMALLER_DIMENSION` from an obstacle it wants to pass on the side and the obstacle is of radius half-robot width around the single detectable point on the axis. So, `ROBOT_HALF_WIDTH_ANGLE` is:
+         ```
+         obstacle robot
+         ------- -------
+         |  *..|||..*  ||<-- b/n Klein starts is robot width (*... ..*)
+         ----\-- |  |  |
+              \   --|-- 
+               \    |
+                \   |<------ half_smaller_dim (0.925)
+                 \  |
+                  \ |
+                   \|
+         ```
+         1. Range to center of obstacle (left *) is `sqrt(robot_width*robot_width + half_smaller_dim*half_smaller_dim)`. Call it `obstacle_ctr_range`.
+         2. `ROBOT_WIDTH_ANGLE` is `cos(half_smaller_dim / obstacle_ctr_range)`.
       6. Calculate `LEFT_BUFFER` and `RIGHT_BUFFER` in number of indices (`int`) from `ROBOT_HALF_WIDTH_ANGLE`.
       7. Apply `LEFT_BUFFER` and `RIGHT_BUFFER` to the span (`std::pair`).
       8. If width is more than `ROBOT_WIDTH_ANGLE`:
