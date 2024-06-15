@@ -174,16 +174,6 @@ void LaserScanSubscriber::find_direction_buffers() {
     next_range = ranges[(i + 1) % size]; // circular array
     // ratio = next_range / range;
     diff = next_range - range;
-    // TODO
-    // ----
-    // ERROR
-    // -----
-    // The fixed ratio won't work in all cases. Two solutions:
-    // 1. Vary the ratio.
-    // 2. Set up inequality dynamically:
-    //    1. Trailing average window (Vulnerable to thin obstacles)
-    //    2. Convolution (Too expensive)
-    //    3. Discrete derivative!!!
     if (-diff > F2B_DIFF_THRESHOLD) {
       // if (ratio < F2B_RATIO_THRESHOLD) {
       if (disc_type == DiscontinuityType::NONE) {

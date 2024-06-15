@@ -194,19 +194,22 @@ The actual TurtleBot3 lab.
          ```
          1. Range to center of obstacle (left *) is `sqrt(robot_width*robot_width + half_smaller_dim*half_smaller_dim)`. Call it `obstacle_ctr_range`.
          2. `ROBOT_WIDTH_ANGLE` is `cos(smaller_dim / obstacle_ctr_range)`. 
-         ```
-         >>> angle_increment = 0.009534446522593498
-         >>> smaller_dim = 1.85
-         >>> robot_width = 0.2
-         >>> half_smaller_dim = smaller_dim / 2.0
-         >>> obstacle_ctr_range = math.sqrt(half_smaller_dim**2 + robot_width**2)
-         >>> robot_width_angle = math.acos (half_smaller_dim / obstacle_ctr_range)
-         >>> buffer_span = robot_width_angle / angle_increment
-         >>> buffer_span
-         22.333582665213278
-         ```
+            ```
+            >>> angle_increment = 0.009534446522593498
+            >>> smaller_dim = 1.85
+            >>> robot_width = 0.2
+            >>> half_smaller_dim = smaller_dim / 2.0
+            >>> obstacle_ctr_range = math.sqrt(half_smaller_dim**2 + robot_width**2)
+            >>> robot_width_angle = math.acos (half_smaller_dim / obstacle_ctr_range)
+            >>> buffer_span = robot_width_angle / angle_increment
+            >>> buffer_span
+            22.333582665213278
+            ```
       6. Calculate `LEFT_BUFFER` and `RIGHT_BUFFER` in number of indices (`int`) from `ROBOT_WIDTH_ANGLE`. `LEFT_BUFFER = RIGHT_BUFFER = 22;`
       7. Apply `LEFT_BUFFER` and `RIGHT_BUFFER` to the span (`std::pair`) and calculate new width.
+      8. Apply `left` and `right` alloweable span, normal (+/- pi rad) or `extended` (+/- pi rad).
+         1. If standard (`extended = false`), intersect spans with `left`-`right`, and calculate new width.
+         2. If extended (`extended = true`), do not modify further.
       8. If width is more than `2 * LEFT_BUFFER`:
          1. Find `largest_range`, the largest range in the (buffered or buffer-reduced) index span.
          2. Append `largest_range` and `largest_range_index` to `std::vector<std::pair<double, int>> clear_spans;`.
