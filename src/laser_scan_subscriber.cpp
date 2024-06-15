@@ -18,7 +18,7 @@ private:
   bool printed_scan_info_ = false;
   enum class DiscontinuityType { NONE, DROP, RISE };
   const double F2B_RATIO_THRESHOLD = 0.5; // foreground to background
-  const double F2B_DIFF_THRESHOLD = 0.75;  // foreground to background
+  const double F2B_DIFF_THRESHOLD = 0.75; // foreground to background
   sensor_msgs::msg::LaserScan laser_scan_data_;
   double direction_;
 
@@ -161,12 +161,9 @@ void LaserScanSubscriber::find_direction_buffers() {
   std::vector<bool> obstacle_or_clear(size);
   bool obs_or_clr = false; // which is which afterwards...
 
-  // TODO: Move to class declaration
-  enum class DiscontinuityType { NONE, DROP, RISE };
-
   DiscontinuityType disc_type = DiscontinuityType::NONE;
   double range, next_range;
-//   double ratio;
+  //   double ratio;
   double diff;
   // The obstacles will be between the lower-indexed
   // sides of the discontinuities.
@@ -188,7 +185,7 @@ void LaserScanSubscriber::find_direction_buffers() {
     //    2. Convolution (Too expensive)
     //    3. Discrete derivative!!!
     if (-diff > F2B_DIFF_THRESHOLD) {
-    // if (ratio < F2B_RATIO_THRESHOLD) {
+      // if (ratio < F2B_RATIO_THRESHOLD) {
       if (disc_type == DiscontinuityType::NONE) {
         disc_type = DiscontinuityType::DROP; // open obst span
         first_disc_ix = i;
@@ -198,7 +195,7 @@ void LaserScanSubscriber::find_direction_buffers() {
       }
       obs_or_clr = true;
     } else if (diff > F2B_DIFF_THRESHOLD) {
-    // } else if (ratio > (1.0 / F2B_RATIO_THRESHOLD)) {
+      // } else if (ratio > (1.0 / F2B_RATIO_THRESHOLD)) {
       if (disc_type == DiscontinuityType::NONE) {
         disc_type = DiscontinuityType::RISE; // close obst span
         first_disc_ix = i;

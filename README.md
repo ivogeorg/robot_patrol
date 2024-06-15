@@ -164,6 +164,30 @@ The actual TurtleBot3 lab.
 6. Multithreading protection.
    1. `laser_scan_data_` or `last_laser_scan_data_`.
 
+7. `find_direction_buffers`
+   1. Find the first discontinuity, say at `[35, 36]`.
+   2. Identify its type, `DROP` or `RISE`.
+   3. Set `index_zero` to `36`.
+   4. In a circular array loop, mark the obstacles. 
+      1. Array of `size`.
+      2. From `index_zero` to `(index_zero - 1 + size) % size`.
+      3. `obstacle_marker` is `true` (or `1`).
+      4. If first discontinuity was `DROP`, an obstacle starts at `36`, so start marking with `1`, else `0`.
+      5. `obstacle_marker` at every discontinuity.
+   5. In a circular array loop, identify the clear spans.
+      1. Array of `size`.
+      2. From `index_zero` to `(index_zero - 1 + size) % size`.
+      3. Identify `span_start_ix` and `span_end_ix`. _Put in a `std::pair`?_
+      4. Calculate width of clear span. **Note:** Circular array! Spans should be monolithic across the discontinuity `[size - 1, 0]`.
+      5. Define `ROBOT_WIDTH_ANGLE` and `ROBOT_HALF_WIDTH_ANGLE` in radians (`double`). Define for a robot that is `OBSTACLE_FORWARD_PROXIMITY` from two obstacles it is trying to move between.
+      6. Calculate `LEFT_BUFFER` and `RIGHT_BUFFER` in number of indices (`int`) from `ROBOT_HALF_WIDTH_ANGLE`.
+      7. Apply `LEFT_BUFFER` and `RIGHT_BUFFER` to the span (`std::pair`).
+      8. If width is more than `ROBOT_WIDTH_ANGLE`:
+         1. Find `largest_range`, the largest range in the (buffered or buffer-reduced) index span.
+         2. Append `largest_range` and `largest_range_index` to `std::vector<std::pair<double, int>> clear_spans;`.
+      9. Sort `clear_spans` by range in descending order.
+      10. Set `direction_` to the second element of the top/head entry of the sorted vector.
+
 
 #### State machine
 
@@ -288,12 +312,12 @@ The actual TurtleBot3 lab.
 4. Obstacle marking is off by one.
    1. Analyze where the DROP and RISE are assigned.
 5. Sorting by width is not good, because there is a huge span along the walls (background) the middle index of which will most likely point to the wall (at a very short distance), and may cause oscillation or similar crazy behavior.
-   1. Add buffer angles, roughly equal to half the width of the robot, at both ends of the clear spans.
-   2. Eliminate those which are reduced to under the width of the robot.
-   3. Note that the width of the robot in terms of degrees is different depending on the range of the obstacle. __CONSIDER!!!__
-   4. Calculate the max range of each of the spans that are left.
-   5. Sort by the range.
-   6. Pick the top.
+   1. Add buffer angles, roughly equal to **half the width of the robot** (see below), at both ends of the clear spans.
+   2. Eliminate those spans which are reduced to under **the width of the robot** (see below).
+   3. Note that **the width of the robot** in terms of degrees is different depending on the range of the obstacle. __CONSIDER!!!__
+   4. Calculate **the max range** of each of the spans that are left. With the buffers applied, there is no longer risk of colliding with hidden obstacles (below the scan plane) if moving in the direction of the largest range!
+   5. Sort by the max range in descending order.
+   6. Set `direction_` to the top/head of the sorted vector.
 6. This algorithm is vulnerable to looking at a cascade (or pyramid) of obstacles.
    1. Dimensions of the world are approximately *2.15 x 1.85* and obstacles are no closer than 0.75 from a wall. This is a good candidate for `F2B_DIFF_THRESHOLD`.
 7. Algorithm missing leading obstacle (that is, first discontinuity is a `RISE`).
