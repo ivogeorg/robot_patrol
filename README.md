@@ -213,8 +213,8 @@ The actual TurtleBot3 lab.
       8. If width is more than `2 * LEFT_BUFFER`:
          1. Find `largest_range`, the largest range in the (buffered or buffer-reduced) index span.
          2. Append `largest_range` and `largest_range_index` to `std::vector<std::pair<double, int>> clear_spans;`.
-      9. Sort `clear_spans` by range in descending order.
-      10. Set `direction_` to the second element of the top/head entry of the sorted vector.
+   6. Sort `clear_spans` by range in descending order.
+   7. Set `direction_` to the second element of the top/head entry of the sorted vector.
 
 
 #### State machine
