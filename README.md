@@ -207,7 +207,7 @@ The actual TurtleBot3 lab.
             ```
       6. Calculate `LEFT_BUFFER` and `RIGHT_BUFFER` in number of indices (`int`) from `ROBOT_WIDTH_ANGLE`. `LEFT_BUFFER = RIGHT_BUFFER = 22;`
       7. Apply `LEFT_BUFFER` and `RIGHT_BUFFER` to the span (`std::pair`) and calculate new width.
-      8. Apply `left` and `right` alloweable span, normal (+/- pi rad) or `extended` (+/- pi rad).
+      8. Apply `left` and `right` alloweable span, normal (+/- pi rad) or `extended` (+/- 2 * pi rad).
          1. If standard (`extended = false`), intersect spans with `left`-`right`, and calculate new width.
          2. If extended (`extended = true`), do not modify further.
       8. If width is more than `2 * LEFT_BUFFER`:
