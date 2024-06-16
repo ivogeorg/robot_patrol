@@ -1,6 +1,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/detail/laser_scan__struct.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
+#include <iterator>
 #include <ostream>
 
 using std::placeholders::_1;
@@ -17,6 +18,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr subscription_;
   bool printed_scan_info_ = false;
   enum class DiscontinuityType { NONE, DROP, RISE };
+  enum class LaserTargetType { CLEAR, OBSTACLE };
   const double F2B_RATIO_THRESHOLD = 0.5; // foreground to background
   const double F2B_DIFF_THRESHOLD = 0.75; // foreground to background
   sensor_msgs::msg::LaserScan laser_scan_data_;
@@ -120,7 +122,7 @@ void LaserScanSubscriber::laser_scan_callback(
     for (auto &d : laser_scan_data_.ranges)
       if (std::isinf(d))
         ++inf_ct;
-    std::cout << "Num inf: " << inf_ct << '\n';
+    std::cout << "Num inf: " << inf_ct << '\n' << std::flush;
     // end DEBUG
 
     // 3. Call find_direction_buffers
@@ -172,29 +174,63 @@ void LaserScanSubscriber::find_direction_buffers() {
   int index_zero = (i + 1) % size;
   // DEBUG
   RCLCPP_INFO(this->get_logger(), "index_zero: %d", index_zero);
+  switch (first_disc_type) {
+  case DiscontinuityType::DROP:
+    RCLCPP_INFO(this->get_logger(), "first_disc_type: DiscontinuityType::DROP");
+    break;
+  case DiscontinuityType::RISE:
+    RCLCPP_INFO(this->get_logger(), "first_disc_type: DiscontinuityType::RISE");
+    break;
+  case DiscontinuityType::NONE:
+  default:
+    RCLCPP_INFO(this->get_logger(), "first_disc_type: DiscontinuityType::NONE");
+    break;
+  }
   // end DEBUG
 
   // 2. In a circular array, mark obstacles and clear
-  bool obstacle_marker =
-      (first_disc_type == DiscontinuityType::DROP) ? true : false;
+  LaserTargetType marker = (first_disc_type == DiscontinuityType::DROP)
+                            ? LaserTargetType::OBSTACLE
+                            : LaserTargetType::CLEAR;
+
   // DEBUG
-  RCLCPP_INFO(this->get_logger(), "obstacle_marker: %d", obstacle_marker);
+  switch (marker) {
+  case LaserTargetType::CLEAR:
+    RCLCPP_INFO(this->get_logger(), "marker: LaserTargetType::CLEAR");
+    break;
+  case LaserTargetType::OBSTACLE:
+    RCLCPP_INFO(this->get_logger(), "marker: LaserTargetType::OBSTACLE");
+    break;
+  }
   // end DEBUG
+
   std::vector<bool> obstacles(size);
   for (i = index_zero;; i = (i + 1) % size) {
-    obstacles[i] = obstacle_marker;
+    obstacles[i] = (marker == LaserTargetType::OBSTACLE) ? true : false;
     range = ranges[i];
     next_range = ranges[(i + 1) % size];
-    if ((range - next_range > F2B_DIFF_THRESHOLD && obstacle_marker == true) ||
-        (next_range - range > F2B_DIFF_THRESHOLD && obstacle_marker == false))
-      obstacle_marker = !obstacle_marker;
+    // When to change the marker:
+    // when DROP and CLEAR, or
+    // when RISE and OBSTACLE
+    if ((range - next_range > F2B_DIFF_THRESHOLD &&
+         marker == LaserTargetType::CLEAR) ||
+        (next_range - range > F2B_DIFF_THRESHOLD &&
+         marker == LaserTargetType::OBSTACLE))
+      switch (marker) {
+      case LaserTargetType::OBSTACLE:
+        marker = LaserTargetType::CLEAR;
+        break;
+      case LaserTargetType::CLEAR:
+        marker = LaserTargetType::OBSTACLE;
+        break;
+      }
 
     if (i == (index_zero - 1 + size) % size)
       break;
   }
 
   // DEBUG
-  std::cout << "Obstacle marked:\n";
+  std::cout << "Obstacles marked:\n";
   for (i = 0; i < size; ++i)
     std::cout << i << ": " << obstacles[i] << " (" << ranges[i] << ")\n";
   std::cout << '\n' << std::flush;
