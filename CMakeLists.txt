@@ -31,9 +31,13 @@ ament_target_dependencies(${PROJECT_NAME}_node rclcpp geometry_msgs sensor_msgs 
 add_executable(laser_scan_subscriber_node src/laser_scan_subscriber.cpp)
 ament_target_dependencies(laser_scan_subscriber_node rclcpp sensor_msgs)
 
+add_executable(find_direction_buffers_node src/find_direction_buffers.cpp)
+ament_target_dependencies(find_direction_buffers_node rclcpp sensor_msgs)
+
 install(TARGETS
 	${PROJECT_NAME}_node
     laser_scan_subscriber_node
+	find_direction_buffers_node
 	DESTINATION lib/${PROJECT_NAME}
 )
 

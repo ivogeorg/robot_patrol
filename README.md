@@ -165,7 +165,7 @@ The actual TurtleBot3 lab.
    1. `laser_scan_data_` or `last_laser_scan_data_`.
 
 7. `find_direction_buffers`
-   1. Find the first discontinuity, say at `[35, 36]`.
+   1. In a circular array, find the first discontinuity, say at `[35, 36]`.
    2. Identify its type, `DROP` or `RISE`.
    3. Set `index_zero` to `36`.
    4. In a circular array loop, mark the obstacles. 
@@ -173,7 +173,7 @@ The actual TurtleBot3 lab.
       2. From `index_zero` to `(index_zero - 1 + size) % size`.
       3. `obstacle_marker` is `true` (or `1`).
       4. If first discontinuity was `DROP`, an obstacle starts at `36`, so start marking with `1`, else `0`.
-      5. `obstacle_marker` at every discontinuity.
+      5. Flip `obstacle_marker` at every discontinuity.
    5. In a circular array loop, identify the clear spans.
       1. Array of `size`.
       2. From `index_zero` to `(index_zero - 1 + size) % size`.
@@ -205,6 +205,7 @@ The actual TurtleBot3 lab.
             >>> buffer_span
             22.333582665213278
             ```
+         3. Move this and downstream setup into a separate function or add to `parametrize_laser_scanner`.
       6. Calculate `LEFT_BUFFER` and `RIGHT_BUFFER` in number of indices (`int`) from `ROBOT_WIDTH_ANGLE`. `LEFT_BUFFER = RIGHT_BUFFER = 22;`
       7. Apply `LEFT_BUFFER` and `RIGHT_BUFFER` to the span (`std::pair`) and calculate new width.
       8. Apply `left` and `right` alloweable span, normal (+/- pi rad) or `extended` (+/- 2 * pi rad).
