@@ -370,6 +370,7 @@ The actual TurtleBot3 lab.
 8. `F2B_DIFF_THRESHOLD` problem (see [errata.md](errata.md)). 
    1. It's happening repeatedly, at the same spot, and the robot continues after restart at the same spot.
    2. Only two short spans are identified and the large wall span is not!
+   3. It seems to stop BEFORE reaching the 0.35 m stopping distance from a wall! It shouldn't be looking for a new direction there.
 
    ![Find direction fail 2](assets/turtlebot-lab-find-direction-fail-2.png)  
 
