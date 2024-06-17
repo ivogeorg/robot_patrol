@@ -368,3 +368,7 @@ The actual TurtleBot3 lab.
    1. Since `inf` does not compare, it is not caught by this algorithm.
    2. After the non-inf a handled
 8. `F2B_DIFF_THRESHOLD` problem (see [errata.md](errata.md)).
+
+   ![Find direction fail spot](assets/turtlebot-lab-find-direction-fail.png)  
+
+   
