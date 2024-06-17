@@ -20,8 +20,8 @@ private:
   enum class DiscontinuityType { NONE, DROP, RISE };
   enum class LaserTargetType { CLEAR, OBSTACLE };
   const double F2B_RATIO_THRESHOLD = 0.5; // foreground to background
-//   const double F2B_DIFF_THRESHOLD = 0.75; // foreground to background
-//   const double F2B_DIFF_THRESHOLD = 0.70; // foreground to background
+  //   const double F2B_DIFF_THRESHOLD = 0.75; // foreground to background
+  //   const double F2B_DIFF_THRESHOLD = 0.70; // foreground to background
   const double F2B_DIFF_THRESHOLD = 0.65; // foreground to background
   sensor_msgs::msg::LaserScan laser_scan_data_;
   double direction_;
@@ -190,7 +190,7 @@ void LaserScanSubscriber::find_direction_buffers() {
   }
   // end DEBUG
 
-  // 2. In a circular array, mark obstacles and clear
+  // 2. In a circular array, mark obstacles and clear spans
   LaserTargetType marker = (first_disc_type == DiscontinuityType::DROP)
                                ? LaserTargetType::OBSTACLE
                                : LaserTargetType::CLEAR;
@@ -242,6 +242,7 @@ void LaserScanSubscriber::find_direction_buffers() {
 
   // TODO: Add buffer application, width filtering, and search range cutoff
 
+  std::vector<std::pair<int, int>> clear_spans;
   int start_ix, end_ix;
   // starting at index_zero
   // whether clear or obstacle depends on the
@@ -257,6 +258,7 @@ void LaserScanSubscriber::find_direction_buffers() {
     } else if (in_clear_span && obstacles[i]) { // obstacle starts
       in_clear_span = false;
       end_ix = i - 1; // don't count the beginning of the obstacle
+      clear_spans.push_back(std::make_pair(start_ix, end_ix));
       // DEBUG
       RCLCPP_INFO(this->get_logger(), "Clear span: [%d, %d]", start_ix, end_ix);
       // end DEBUG
@@ -267,6 +269,7 @@ void LaserScanSubscriber::find_direction_buffers() {
     if (i == (index_zero - 1 + size) % size) {
       if (in_clear_span) {
         end_ix = i;
+        clear_spans.push_back(std::make_pair(start_ix, end_ix));
         // DEBUG
         RCLCPP_INFO(this->get_logger(), "Clear span: [%d, %d]", start_ix,
                     end_ix);
@@ -278,7 +281,75 @@ void LaserScanSubscriber::find_direction_buffers() {
   }
 
   // DEBUG
-  RCLCPP_INFO(this->get_logger(), "Num clear spans: %d", num_clear_spans);
+  RCLCPP_INFO(this->get_logger(), "Num clear spans: %d",
+              static_cast<int>(clear_spans.size()));
+  // end DEBUG
+
+  // 4. Apply buffers and filter by width
+  // 22 indices on both sides of every clear span
+  // minimum width is robot_width, which is 44
+  // define std::vector<std::pair<double, int>> dir_candidates for
+  // (largest_range, direction index) if remaining width of a clear span is >
+  // 44:
+  //    - find its largest range and index
+  //    - append to dir_candidates
+
+  // TODO: move to class declaration
+  const int BUFFER = 22;
+  const int ROBOT_WIDTH = 2 * BUFFER;
+  // end TODO
+
+  std::vector<std::pair<double, int>> dir_candidates;
+  int width;
+
+  for (auto &span : clear_spans) {
+    // TODO: width in a circular array!
+    std::tie(start_ix, end_ix) = span;
+    if (end_ix >= start_ix) { // normal difference
+      width = end_ix - (start_ix - 1 + size) % size;
+    } else { // difference across discontinuity [size - 1, 0]
+      width = size - (start_ix - 1 - end_ix);
+    }
+    if (width - 2 * BUFFER > ROBOT_WIDTH) {
+      // modify the indices
+      start_ix = (start_ix + BUFFER) % size;
+      end_ix = (end_ix - BUFFER + size) % size;
+
+      // find the largest range and its index
+      double largest_range = 0.0;
+      int largest_range_index = -1;
+      for (i = start_ix;; i = (i + 1) % size) {
+        if (ranges[i] > largest_range) {
+          largest_range = ranges[i];
+          largest_range_index = i;
+        }
+
+        if (i == (end_ix + 1) % size)
+          break;
+      }
+
+      // append to dir_candidates
+      dir_candidates.push_back(
+          std::make_pair(largest_range, largest_range_index));
+
+      // DEBUG
+      RCLCPP_INFO(this->get_logger(),
+                  "Candidate span & dir: start_ix = %d, end_ix = %d, "
+                  "largest_range_index = %d, largest_range = %f",
+                  start_ix, end_ix, largest_range_index, largest_range);
+      // end DEBUG
+    }
+  }
+
+  // 5. Sort by range in descending order
+  std::sort(dir_candidates.begin(), dir_candidates.end(),
+            [](const std::pair<double, int> &a,
+               const std::pair<double, int> &b) { return a.first > b.first; });
+
+  // 6. Set direction_ to the index of the top sorted element
+  // DEBUG
+  RCLCPP_INFO(this->get_logger(), "Recommended direction: %d (%f)",
+              dir_candidates[0].second, dir_candidates[0].first);
   // end DEBUG
 }
 
