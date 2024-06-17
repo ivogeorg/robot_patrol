@@ -122,7 +122,19 @@ private:
   //     obs_or_clr = true;
   //   else if (ratio > (1.0 / THRESHOLD))
   //     obs_or_clr = false;
-  const double F2B_RATIO_THRESHOLD = 0.5;
+
+  // find direction with buffers
+  enum class DiscontinuityType { NONE, DROP, RISE };
+  enum class LaserTargetType { CLEAR, OBSTACLE };
+  const double F2B_RATIO_THRESHOLD = 0.5; // foreground to background
+  const double F2B_DIFF_THRESHOLD = 0.65; // foreground to background
+
+  // TODO: calculate in function
+  // DEBUG
+  const int BUFFER = 35; // buffer angle to add to clear spans
+  //   const int BUFFER = 22;              // buffer angle to add to clear spans
+  // end DEBUG
+  const int ROBOT_WIDTH = 2 * BUFFER; // filter criterion for clear spans
 
   // Misc. parameters
   const double FLOAT_COMPARISON_TOLERANCE = 1e-9;
@@ -171,7 +183,7 @@ private:
   void find_direction_heuristic(bool extended = false,
                                 DirSafetyBias dir_bias = DirSafetyBias::ANGLE,
                                 DirPref dir_pref = DirPref::NONE);
-  void find_direction_midrange(bool extended = false);
+  void find_direction_buffers(bool extended = false);
   double normalize_angle(double angle);
   // end utility functions
 };
@@ -351,7 +363,7 @@ void Patrol::velocity_callback() {
 
     // DEBUG
     // debugging new algorithm
-    find_direction_midrange(false);
+    find_direction_buffers(false);
     // end DEBUG
 
     // find_direction_heuristic(extended_angle_range_, dir_safety_bias_,
@@ -847,161 +859,208 @@ void Patrol::find_direction_heuristic(bool extended, DirSafetyBias dir_bias,
 // candidates will be sorted by width and range.
 
 // TODO: Add bool buffers parameter!
-void Patrol::find_direction_midrange(bool extended) {
+void Patrol::find_direction_buffers(bool extended) {
   RCLCPP_INFO(this->get_logger(), "Looking for safest direction");
 
   std::vector<double> ranges(laser_scan_data_.ranges.begin(),
                              laser_scan_data_.ranges.end());
 
-  // 1. (optional) Extended range
-  double right = (extended) ? RIGHT_EXTEND : RIGHT;
-  double left = (extended) ? LEFT_EXTEND : LEFT;
-
-  // TODO: Enforce range!
-
-  //   // 2. (fixed) Filter by angle and sort by range
-  //   // put ranges and indices into a vector for sorting
-  //   std::vector<std::pair<int, float>> v_indexed_ranges;
-  //   for (int i = 0; i < static_cast<int>(ranges.size()); ++i)
-  //     // include only ray indices between RIGHT and LEFT (REQUIREMENT)
-  //     // and not those in the FRONT spread (which are checked for obstacles)
-  //     if ((i >= right && i < FRONT_FROM) || (i >= FRONT_TO && i <= left))
-  //       if (!std::isinf(ranges[i]))
-  //         v_indexed_ranges.push_back(std::make_pair(i, ranges[i]));
-
-  //   // sort by ranges in descending order to get the peak ranges first
-  //   std::sort(v_indexed_ranges.begin(), v_indexed_ranges.end(),
-  //             [](const std::pair<int, float> &a, const std::pair<int, float>
-  //             &b) {
-  //               return a.second > b.second;
-  //             });
-
-  // 2. Mark obstacles in the scan circular array
-  //    Need the wraparound because there might be an obstacle behind
-  //    F2B_RATIO_THRESHOLD
-
-  // Circular array! How to mark obstacles?
-  // The algorithm marks 1s and 0s, switching on a discontinuity,
-  // either drop or jump. Foreground obstacles are marked by a drop
-  // and after that a jump. If the first discontinuity is a drop,
-  // obstacles are the 1s; if the first discontinuity is a rise,
-  // obstacles are the 0s.
+  // 1. In a circular array, find the first discontinuity
   int size = static_cast<int>(ranges.size());
-  std::vector<bool> obstacle_or_clear(size);
-  bool obs_or_clr = false; // which is which afterwards...
 
-  // TODO: Move to class declaration
-  enum class DiscontinuityType { NONE, DROP, RISE };
-
-  DiscontinuityType disc_type = DiscontinuityType::NONE;
   double range, next_range;
-  double ratio;
-  // The obstacles will be between the lower-indexed
-  // sides of the discontinuities.
-  int first_disc_ix; // Need for the open span extraction.
-  for (int i = 0; i < size; ++i) {
-    std::cout << i << ": " << ranges[i] << " (";
+  DiscontinuityType first_disc_type = DiscontinuityType::NONE;
+  int i = 0;
+  for (; i < size; ++i) {
     range = ranges[i];
-    next_range = ranges[(i + 1) % size]; // circular array
-    ratio = next_range / range;
-    if (ratio < F2B_RATIO_THRESHOLD) {
-      if (disc_type == DiscontinuityType::NONE) {
-        disc_type = DiscontinuityType::RISE; // open obst span
-        first_disc_ix = i;
-      }
-      obs_or_clr = true;
-    } else if (ratio > (1.0 / F2B_RATIO_THRESHOLD)) {
-      if (disc_type == DiscontinuityType::NONE) {
-        disc_type = DiscontinuityType::DROP; // close obst span
-        first_disc_ix = i;
-      }
-      obs_or_clr = false;
+    next_range = ranges[(i + 1) % size];
+    if (range - next_range > F2B_DIFF_THRESHOLD) {
+      first_disc_type = DiscontinuityType::DROP;
+      break;
+    } else if (next_range - range > F2B_DIFF_THRESHOLD) {
+      first_disc_type = DiscontinuityType::RISE;
+      break;
     }
-    obstacle_or_clear[i] = obs_or_clr;
-    std::cout << obs_or_clr << ")\n";
   }
 
-  // 3. Extract open spans (between obstacles) in circular array
-  //    Apply right and left endpoints
-  //    Filter by width???
+  int index_zero = (i + 1) % size;
+  // DEBUG
+  RCLCPP_INFO(this->get_logger(), "index_zero: %d", index_zero);
+  switch (first_disc_type) {
+  case DiscontinuityType::DROP:
+    RCLCPP_INFO(this->get_logger(), "first_disc_type: DiscontinuityType::DROP");
+    break;
+  case DiscontinuityType::RISE:
+    RCLCPP_INFO(this->get_logger(), "first_disc_type: DiscontinuityType::RISE");
+    break;
+  case DiscontinuityType::NONE:
+  default:
+    RCLCPP_INFO(this->get_logger(), "first_disc_type: DiscontinuityType::NONE");
+    break;
+  }
+  // end DEBUG
 
-  // If the first discontinuity is a DROP, obstacles are the 1s;
-  // if the first discontinuity is a RISE, obstacles are the 0s.
-  bool obstacle_marker = (disc_type == DiscontinuityType::DROP) ? true : false;
+  // 2. In a circular array, mark obstacles and clear spans
+  LaserTargetType marker = (first_disc_type == DiscontinuityType::DROP)
+                               ? LaserTargetType::OBSTACLE
+                               : LaserTargetType::CLEAR;
 
-  // Extract clear spans
-  //   std::vector<std::pair<int, int>> clear_spans;
-  //   /*
-  // width, middle_ix, distance
-  std::vector<std::tuple<int, int, double>> clear_spans;
-  //   */
-  int start_ix, end_ix, middle_ix, width;
-  double mid_range;
-  bool is_clear_span = false;
+  // DEBUG
+  switch (marker) {
+  case LaserTargetType::CLEAR:
+    RCLCPP_INFO(this->get_logger(), "marker: LaserTargetType::CLEAR");
+    break;
+  case LaserTargetType::OBSTACLE:
+    RCLCPP_INFO(this->get_logger(), "marker: LaserTargetType::OBSTACLE");
+    break;
+  }
+  // end DEBUG
 
-  // Circular array
-  for (int i = first_disc_ix;; i = (i + 1) % size) {
+  std::vector<bool> obstacles(size);
+  for (i = index_zero;; i = (i + 1) % size) {
+    obstacles[i] = (marker == LaserTargetType::OBSTACLE) ? true : false;
+    range = ranges[i];
+    next_range = ranges[(i + 1) % size];
+    // When to change the marker:
+    // when DROP and CLEAR, or
+    // when RISE and OBSTACLE
+    if ((range - next_range > F2B_DIFF_THRESHOLD &&
+         marker == LaserTargetType::CLEAR) ||
+        (next_range - range > F2B_DIFF_THRESHOLD &&
+         marker == LaserTargetType::OBSTACLE))
+      switch (marker) {
+      case LaserTargetType::OBSTACLE:
+        marker = LaserTargetType::CLEAR;
+        break;
+      case LaserTargetType::CLEAR:
+        marker = LaserTargetType::OBSTACLE;
+        break;
+      }
 
-    if (obstacle_or_clear[i] == obstacle_marker) { // obstacle
-      // if open clear span, close and add clear span
-      if (is_clear_span) {
-        end_ix = i;
-
-        // compute width and middle index
-        if (start_ix < end_ix) {
-          // normal case
-          width = end_ix - start_ix - 1; // TODO: Verify!!!
-          middle_ix = static_cast<int>(lround((end_ix + start_ix) / 2.0));
-        } else {
-          // accross the discontinuity [size - 1, 0]
-          width = size - start_ix - 1 + end_ix; // TODO: Verify!!!
-          middle_ix = static_cast<int>(start_ix + width / 2.0) % size;
-        }
-        mid_range = ranges[middle_ix];
-
-        // append to vector
-        // width, middle_ix, distance
-        // NOTE: This leaves the door open to adding
-        //       buffer angles to foreground obstacles.
-        clear_spans.push_back(std::make_tuple(width, middle_ix, mid_range));
-        is_clear_span = false;
-      }      // else, do nothing
-    } else { // clear
-      // if no clear span open, start a new one
-      if (!is_clear_span) {
-        is_clear_span = true;
-        start_ix = i;
-      } // else, do nothing
-    }
-
-    if (i == first_disc_ix - 1)
+    if (i == (index_zero - 1 + size) % size)
       break;
   }
 
-  // 4. Sort width
-  std::sort(clear_spans.begin(), clear_spans.end(),
-            [](const std::tuple<int, int, double> &a,
-               const std::tuple<int, int, double> &b) {
-              return std::get<0>(a) > std::get<0>(b);
-            });
+  // DEBUG
+  std::cout << "Obstacles marked:\n";
+  for (i = 0; i < size; ++i)
+    std::cout << i << ": " << obstacles[i] << " (" << ranges[i] << ")\n";
+  std::cout << '\n' << std::flush;
+  // end DEBUG
 
-  // 5. (Alternatively) Sort by a safety criterion
-  //    The top direction from above might not be
-  //    the best in terms of "patrolling" behavior
-  //    Will need to set explicit buffer angles for this!
+  // 3. In a circular array, identify the clear spans
 
-  // TODO
+  std::vector<std::pair<int, int>> clear_spans;
+  int start_ix, end_ix;
+  // starting at index_zero
+  // whether clear or obstacle depends on the
+  // marker type at index_zero (that is, there
+  // is or isn't an obstacle at index_zero)
+  bool in_clear_span = !obstacles[index_zero];
+  int num_clear_spans = 0;
 
-  // 6. Take the top candidate
-  std::tie(width, middle_ix, mid_range) = clear_spans[0];
-  direction_ = middle_ix;
+  for (i = index_zero;; i = (i + 1) % size) {
+    if (!in_clear_span && !obstacles[i]) { // obstacle is over
+      in_clear_span = true;
+      start_ix = i;
+    } else if (in_clear_span && obstacles[i]) { // obstacle starts
+      in_clear_span = false;
+      end_ix = i - 1; // don't count the beginning of the obstacle
+      clear_spans.push_back(std::make_pair(start_ix, end_ix));
+      // DEBUG
+      RCLCPP_INFO(this->get_logger(), "Clear span: [%d, %d]", start_ix, end_ix);
+      // end DEBUG
+      ++num_clear_spans;
+    }
 
-  // 7. Restore extended range
+    // We start at a discontinuity, so need to count the last span
+    if (i == (index_zero - 1 + size) % size) {
+      if (in_clear_span) {
+        end_ix = i;
+        clear_spans.push_back(std::make_pair(start_ix, end_ix));
+        // DEBUG
+        RCLCPP_INFO(this->get_logger(), "Clear span: [%d, %d]", start_ix,
+                    end_ix);
+        // end DEBUG
+        ++num_clear_spans;
+      }
+      break;
+    }
+  }
+
+  // DEBUG
+  RCLCPP_INFO(this->get_logger(), "Num clear spans: %d",
+              static_cast<int>(clear_spans.size()));
+  // end DEBUG
+
+  // 4. Apply buffers and filter by width
+  // 22 indices on both sides of every clear span
+  // minimum width is robot_width, which is 44
+  // define std::vector<std::pair<double, int>> dir_candidates for
+  // (largest_range, direction index) if remaining width of a clear span is >
+  // 44:
+  //    - find its largest range and index
+  //    - append to dir_candidates
+
+  std::vector<std::pair<double, int>> dir_candidates;
+  int width;
+
+  for (auto &span : clear_spans) {
+    // TODO: width in a circular array!
+    std::tie(start_ix, end_ix) = span;
+    if (end_ix >= start_ix) { // normal difference
+      width = end_ix - (start_ix - 1 + size) % size;
+    } else { // difference across discontinuity [size - 1, 0]
+      width = size - (start_ix - 1 - end_ix);
+    }
+    if (width - 2 * BUFFER > ROBOT_WIDTH) {
+      // modify the indices
+      start_ix = (start_ix + BUFFER) % size;
+      end_ix = (end_ix - BUFFER + size) % size;
+
+      // find the largest range and its index
+      double largest_range = 0.0;
+      int largest_range_index = -1;
+      for (i = start_ix;; i = (i + 1) % size) {
+        if (ranges[i] > largest_range) {
+          largest_range = ranges[i];
+          largest_range_index = i;
+        }
+
+        if (i == (end_ix + 1) % size)
+          break;
+      }
+
+      // append to dir_candidates
+      dir_candidates.push_back(
+          std::make_pair(largest_range, largest_range_index));
+
+      // DEBUG
+      RCLCPP_INFO(this->get_logger(),
+                  "Candidate span & dir: start_ix = %d, end_ix = %d, "
+                  "largest_range_index = %d, largest_range = %f",
+                  start_ix, end_ix, largest_range_index, largest_range);
+      // end DEBUG
+    }
+  }
+
+  // 5. Sort by range in descending order
+  std::sort(dir_candidates.begin(), dir_candidates.end(),
+            [](const std::pair<double, int> &a,
+               const std::pair<double, int> &b) { return a.first > b.first; });
+
+  // 6. Select the the index of the top sorted element
+  //   calalculate the angle relative to angle zero (FRONT)
+  //   negative - CW, positive - CCW, angle_increment is in radians
+
+  // DEBUG
+  RCLCPP_INFO(this->get_logger(), "Recommended direction: %d (%f)",
+              dir_candidates[0].second, dir_candidates[0].first);
+  // end DEBUG
+  direction_ = (dir_candidates[0].second - FRONT) * ANGLE_INCREMENT;
+
+  // 7. Restore extended range and bias defaults
   extended_angle_range_ = false;
-
-  // TODO: Anything else to restore (for other function)
-  // TODO: Clean up velocity_callback from heuristic
-  //       direction search machinery
 }
 
 double Patrol::normalize_angle(double angle) {

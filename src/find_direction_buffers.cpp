@@ -294,7 +294,7 @@ void LaserScanSubscriber::find_direction_buffers() {
   //    - find its largest range and index
   //    - append to dir_candidates
 
-  // TODO: move to class declaration
+  // TODO: move to class declaration, calculate in function
   const int BUFFER = 22;
   const int ROBOT_WIDTH = 2 * BUFFER;
   // end TODO
