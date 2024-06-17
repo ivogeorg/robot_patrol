@@ -332,24 +332,24 @@ The actual TurtleBot3 lab.
    1. Tune to the space.
    2. Use window average.
    3. **Switch to difference with a finite value, not a ratio, because the inverse is way too big.**
-2. A memory access error occurs at certain times.
+2. ~A memory access error occurs at certain times.~
    1. Check all container random access.
    2. Check circular array accesses.
-3. Clear spans count is off by one.
+3. ~Clear spans count is off by one.~
    1. Check circular array tracking.
    2. Analyze the algorithm for marking obstacles and clear spans.
-4. Obstacle marking is off by one.
+4. ~Obstacle marking is off by one.~
    1. Analyze where the DROP and RISE are assigned.
-5. Sorting by width is not good, because there is a huge span along the walls (background) the middle index of which will most likely point to the wall (at a very short distance), and may cause oscillation or similar crazy behavior.
+5. ~Sorting by width is not good, because there is a huge span along the walls (background) the middle index of which will most likely point to the wall (at a very short distance), and may cause oscillation or similar crazy behavior.~
    1. Add buffer angles, roughly equal to **half the width of the robot** (see below), at both ends of the clear spans.
    2. Eliminate those spans which are reduced to under **the width of the robot** (see below).
    3. Note that **the width of the robot** in terms of degrees is different depending on the range of the obstacle. __CONSIDER!!!__
    4. Calculate **the max range** of each of the spans that are left. With the buffers applied, there is no longer risk of colliding with hidden obstacles (below the scan plane) if moving in the direction of the largest range!
    5. Sort by the max range in descending order.
    6. Set `direction_` to the top/head of the sorted vector.
-6. This algorithm is vulnerable to looking at a cascade (or pyramid) of obstacles.
+6. ~This algorithm is vulnerable to looking at a cascade (or pyramid) of obstacles.~
    1. Dimensions of the world are approximately *2.15 x 1.85* and obstacles are no closer than 0.75 from a wall. This is a good candidate for `F2B_DIFF_THRESHOLD`.
-7. Algorithm missing leading obstacle (that is, first discontinuity is a `RISE`).
+7. ~Algorithm missing leading obstacle (that is, first discontinuity is a `RISE`).~
    ```
     [laser_scan_subscriber_node-1] 0: 0.354041 (0)
     [laser_scan_subscriber_node-1] 1: 0.368825 (0)
@@ -367,3 +367,4 @@ The actual TurtleBot3 lab.
 7. (suspicious) More robust handling of `inf`.
    1. Since `inf` does not compare, it is not caught by this algorithm.
    2. After the non-inf a handled
+8. `F2B_DIFF_THRESHOLD` problem (see [errata.md](errata.md)).

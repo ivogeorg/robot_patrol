@@ -135,6 +135,7 @@ private:
   //   const int BUFFER = 22;              // buffer angle to add to clear spans
   // end DEBUG
   const int ROBOT_WIDTH = 2 * BUFFER; // filter criterion for clear spans
+  // end TODO
 
   // Misc. parameters
   const double FLOAT_COMPARISON_TOLERANCE = 1e-9;
