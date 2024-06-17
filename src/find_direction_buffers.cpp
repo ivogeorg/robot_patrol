@@ -20,7 +20,9 @@ private:
   enum class DiscontinuityType { NONE, DROP, RISE };
   enum class LaserTargetType { CLEAR, OBSTACLE };
   const double F2B_RATIO_THRESHOLD = 0.5; // foreground to background
-  const double F2B_DIFF_THRESHOLD = 0.75; // foreground to background
+//   const double F2B_DIFF_THRESHOLD = 0.75; // foreground to background
+//   const double F2B_DIFF_THRESHOLD = 0.70; // foreground to background
+  const double F2B_DIFF_THRESHOLD = 0.65; // foreground to background
   sensor_msgs::msg::LaserScan laser_scan_data_;
   double direction_;
 
@@ -190,8 +192,8 @@ void LaserScanSubscriber::find_direction_buffers() {
 
   // 2. In a circular array, mark obstacles and clear
   LaserTargetType marker = (first_disc_type == DiscontinuityType::DROP)
-                            ? LaserTargetType::OBSTACLE
-                            : LaserTargetType::CLEAR;
+                               ? LaserTargetType::OBSTACLE
+                               : LaserTargetType::CLEAR;
 
   // DEBUG
   switch (marker) {
@@ -234,6 +236,49 @@ void LaserScanSubscriber::find_direction_buffers() {
   for (i = 0; i < size; ++i)
     std::cout << i << ": " << obstacles[i] << " (" << ranges[i] << ")\n";
   std::cout << '\n' << std::flush;
+  // end DEBUG
+
+  // 3. In a circular array, identify the clear spans
+
+  // TODO: Add buffer application, width filtering, and search range cutoff
+
+  int start_ix, end_ix;
+  // starting at index_zero
+  // whether clear or obstacle depends on the
+  // marker type at index_zero (that is, there
+  // is or isn't an obstacle at index_zero)
+  bool in_clear_span = !obstacles[index_zero];
+  int num_clear_spans = 0;
+
+  for (i = index_zero;; i = (i + 1) % size) {
+    if (!in_clear_span && !obstacles[i]) { // obstacle is over
+      in_clear_span = true;
+      start_ix = i;
+    } else if (in_clear_span && obstacles[i]) { // obstacle starts
+      in_clear_span = false;
+      end_ix = i - 1; // don't count the beginning of the obstacle
+      // DEBUG
+      RCLCPP_INFO(this->get_logger(), "Clear span: [%d, %d]", start_ix, end_ix);
+      // end DEBUG
+      ++num_clear_spans;
+    }
+
+    // We start at a discontinuity, so need to count the last span
+    if (i == (index_zero - 1 + size) % size) {
+      if (in_clear_span) {
+        end_ix = i;
+        // DEBUG
+        RCLCPP_INFO(this->get_logger(), "Clear span: [%d, %d]", start_ix,
+                    end_ix);
+        // end DEBUG
+        ++num_clear_spans;
+      }
+      break;
+    }
+  }
+
+  // DEBUG
+  RCLCPP_INFO(this->get_logger(), "Num clear spans: %d", num_clear_spans);
   // end DEBUG
 }
 
