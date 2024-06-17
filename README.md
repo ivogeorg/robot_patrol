@@ -367,8 +367,11 @@ The actual TurtleBot3 lab.
 7. (suspicious) More robust handling of `inf`.
    1. Since `inf` does not compare, it is not caught by this algorithm.
    2. After the non-inf a handled
-8. `F2B_DIFF_THRESHOLD` problem (see [errata.md](errata.md)).
+8. `F2B_DIFF_THRESHOLD` problem (see [errata.md](errata.md)). 
+   1. It's happening repeatedly, at the same spot, and the robot continues after restart at the same spot.
+   2. Only two short spans are identified and the large wall span is not!
 
-   ![Find direction fail spot](assets/turtlebot-lab-find-direction-fail.png)  
+   ![Find direction fail 2](assets/turtlebot-lab-find-direction-fail-2.png)  
 
-   
+   ![Find direction fail 4](assets/turtlebot-lab-find-direction-fail-4.png)  
+
