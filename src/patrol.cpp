@@ -127,7 +127,8 @@ private:
   enum class DiscontinuityType { NONE, DROP, RISE };
   enum class LaserTargetType { CLEAR, OBSTACLE };
   const double F2B_RATIO_THRESHOLD = 0.5; // foreground to background
-  const double F2B_DIFF_THRESHOLD = 0.65; // foreground to background
+//   const double F2B_DIFF_THRESHOLD = 0.65; // foreground to background
+  const double F2B_DIFF_THRESHOLD = 0.60; // foreground to background
 
   // TODO: calculate in function
   // DEBUG
@@ -1054,11 +1055,11 @@ void Patrol::find_direction_buffers(bool extended) {
   //   calalculate the angle relative to angle zero (FRONT)
   //   negative - CW, positive - CCW, angle_increment is in radians
 
+  direction_ = (dir_candidates[0].second - FRONT) * ANGLE_INCREMENT;
   // DEBUG
   RCLCPP_INFO(this->get_logger(), "Recommended direction: %d (%f)",
-              dir_candidates[0].second, dir_candidates[0].first);
+              direction_, dir_candidates[0].first);
   // end DEBUG
-  direction_ = (dir_candidates[0].second - FRONT) * ANGLE_INCREMENT;
 
   // 7. Restore extended range and bias defaults
   extended_angle_range_ = false;
