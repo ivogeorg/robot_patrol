@@ -127,7 +127,7 @@ private:
   enum class DiscontinuityType { NONE, DROP, RISE };
   enum class LaserTargetType { CLEAR, OBSTACLE };
   const double F2B_RATIO_THRESHOLD = 0.5; // foreground to background
-//   const double F2B_DIFF_THRESHOLD = 0.65; // foreground to background
+  //   const double F2B_DIFF_THRESHOLD = 0.65; // foreground to background
   const double F2B_DIFF_THRESHOLD = 0.60; // foreground to background
 
   // TODO: calculate in function
@@ -372,7 +372,7 @@ void Patrol::velocity_callback() {
     //                       DirPref::NONE); // true = extend side ranges
 
     state_ = State::TURNING;
-    RCLCPP_INFO(this->get_logger(), "Found new direction (robot frame) %f",
+    RCLCPP_INFO(this->get_logger(), "Found new direction (robot frame) %f rad",
                 direction_);
     RCLCPP_DEBUG(this->get_logger(), "Starting yaw %f", yaw_);
 
@@ -870,6 +870,13 @@ void Patrol::find_direction_buffers(bool extended) {
   // 1. In a circular array, find the first discontinuity
   int size = static_cast<int>(ranges.size());
 
+
+
+  // TODO: Apply +/- pi rad constraint when not "extended" (1 place)
+  // Probably the easiest!
+
+
+
   double range, next_range;
   DiscontinuityType first_disc_type = DiscontinuityType::NONE;
   int i = 0;
@@ -944,10 +951,10 @@ void Patrol::find_direction_buffers(bool extended) {
   }
 
   // DEBUG
-  std::cout << "Obstacles marked:\n";
-  for (i = 0; i < size; ++i)
-    std::cout << i << ": " << obstacles[i] << " (" << ranges[i] << ")\n";
-  std::cout << '\n' << std::flush;
+  //   std::cout << "Obstacles marked:\n";
+  //   for (i = 0; i < size; ++i)
+  //     std::cout << i << ": " << obstacles[i] << " (" << ranges[i] << ")\n";
+  //   std::cout << '\n' << std::flush;
   // end DEBUG
 
   // 3. In a circular array, identify the clear spans
@@ -960,6 +967,12 @@ void Patrol::find_direction_buffers(bool extended) {
   // is or isn't an obstacle at index_zero)
   bool in_clear_span = !obstacles[index_zero];
   int num_clear_spans = 0;
+
+
+
+  // TODO: Apply +/- pi rad constraint when not "extended" (2 place)
+
+
 
   for (i = index_zero;; i = (i + 1) % size) {
     if (!in_clear_span && !obstacles[i]) { // obstacle is over
@@ -1008,21 +1021,41 @@ void Patrol::find_direction_buffers(bool extended) {
   int width;
 
   for (auto &span : clear_spans) {
-    // TODO: width in a circular array!
+    // width in a circular array!
     std::tie(start_ix, end_ix) = span;
+    // DEBUG
+    RCLCPP_INFO(this->get_logger(), "Candidate span [%d, %d]", start_ix,
+                end_ix);
+    // end DEBUG
     if (end_ix >= start_ix) { // normal difference
       width = end_ix - (start_ix - 1 + size) % size;
     } else { // difference across discontinuity [size - 1, 0]
       width = size - (start_ix - 1 - end_ix);
     }
+    // DEBUG
+    RCLCPP_INFO(this->get_logger(), "Width %d", width);
+    // end DEBUG
+
+
+
+    // TODO: Apply +/- pi rad constraint when not "extended" (3 place)
+    // TODO: calculate the "width" at a distance
+
+
+
     if (width - 2 * BUFFER > ROBOT_WIDTH) {
       // modify the indices
       start_ix = (start_ix + BUFFER) % size;
       end_ix = (end_ix - BUFFER + size) % size;
 
+      // DEBUG
+      RCLCPP_INFO(this->get_logger(), "Sufficiently wide");
+      // end DEBUG
+
       // find the largest range and its index
       double largest_range = 0.0;
       int largest_range_index = -1;
+
       for (i = start_ix;; i = (i + 1) % size) {
         if (ranges[i] > largest_range) {
           largest_range = ranges[i];
@@ -1039,9 +1072,14 @@ void Patrol::find_direction_buffers(bool extended) {
 
       // DEBUG
       RCLCPP_INFO(this->get_logger(),
-                  "Candidate span & dir: start_ix = %d, end_ix = %d, "
+                  "Buffered span: start_ix = %d, end_ix = %d, "
                   "largest_range_index = %d, largest_range = %f",
                   start_ix, end_ix, largest_range_index, largest_range);
+      // end DEBUG
+    } else {
+      // DEBUG
+      RCLCPP_INFO(this->get_logger(), "Insufficiently wide (required %d)",
+                  ROBOT_WIDTH);
       // end DEBUG
     }
   }
@@ -1057,8 +1095,9 @@ void Patrol::find_direction_buffers(bool extended) {
 
   direction_ = (dir_candidates[0].second - FRONT) * ANGLE_INCREMENT;
   // DEBUG
-  RCLCPP_INFO(this->get_logger(), "Recommended direction: %d (%f)",
-              direction_, dir_candidates[0].first);
+  RCLCPP_INFO(this->get_logger(),
+              "Recommended direction %f rad with range %f m", direction_,
+              dir_candidates[0].first);
   // end DEBUG
 
   // 7. Restore extended range and bias defaults
