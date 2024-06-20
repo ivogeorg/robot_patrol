@@ -498,7 +498,7 @@ void Patrol::laser_scan_callback(
   for (auto &d : laser_scan_data_.ranges)
     if (std::isinf(d))
       ++inf_ct;
-  RCLCPP_INFO(this->get_logger(), "Num inf: %d", inf_ct);
+  RCLCPP_DEBUG(this->get_logger(), "Num inf: %d", inf_ct);
   // end DEBUG
 
   have_laser_ = true;
