@@ -6133,3 +6133,35 @@ user:~$
 user:~$
 ```
 
+### Super large index
+
+With screenshot. Works at restart.
+
+```
+[robot_patrol_node-1] [INFO] [1718923687.569352274] [robot_patrol_node]: Going forward...
+[robot_patrol_node-1]
+[robot_patrol_node-1] [INFO] [1718923695.968735878] [robot_patrol_node]: Obstacle in front, stopping
+[robot_patrol_node-1] [INFO] [1718923696.068720755] [robot_patrol_node]: Looking for safest direction
+[robot_patrol_node-1] [INFO] [1718923696.068796268] [robot_patrol_node]: index_zero: 1
+[robot_patrol_node-1] [INFO] [1718923696.068810387] [robot_patrol_node]: first_disc_type: DiscontinuityType::RISE
+[robot_patrol_node-1] [INFO] [1718923696.068822784] [robot_patrol_node]: marker: LaserTargetType::CLEAR
+[robot_patrol_node-1] [INFO] [1718923696.070615679] [robot_patrol_node]: Clear span: [1690266992, 577]
+[robot_patrol_node-1] [INFO] [1718923696.070648608] [robot_patrol_node]: Clear span: [610, 611]
+[robot_patrol_node-1] [INFO] [1718923696.070658304] [robot_patrol_node]: Clear span: [627, 630]
+[robot_patrol_node-1] [INFO] [1718923696.070667065] [robot_patrol_node]: Clear span: [639, 650]
+[robot_patrol_node-1] [INFO] [1718923696.070704352] [robot_patrol_node]: Num clear spans: 4
+[robot_patrol_node-1] [INFO] [1718923696.070713754] [robot_patrol_node]: Candidate span [1690266992, 577]
+[robot_patrol_node-1] [INFO] [1718923696.070722149] [robot_patrol_node]: Width -1690265754
+[robot_patrol_node-1] [INFO] [1718923696.070730176] [robot_patrol_node]: Insufficiently wide (required 70)
+[robot_patrol_node-1] [INFO] [1718923696.070737842] [robot_patrol_node]: Candidate span [610, 611]
+[robot_patrol_node-1] [INFO] [1718923696.070745003] [robot_patrol_node]: Width 2
+[robot_patrol_node-1] [INFO] [1718923696.070752174] [robot_patrol_node]: Insufficiently wide (required 70)
+[robot_patrol_node-1] [INFO] [1718923696.070759630] [robot_patrol_node]: Candidate span [627, 630]
+[robot_patrol_node-1] [INFO] [1718923696.070766945] [robot_patrol_node]: Width 4
+[robot_patrol_node-1] [INFO] [1718923696.070774681] [robot_patrol_node]: Insufficiently wide (required 70)
+[robot_patrol_node-1] [INFO] [1718923696.070781765] [robot_patrol_node]: Candidate span [639, 650]
+[robot_patrol_node-1] [INFO] [1718923696.070788837] [robot_patrol_node]: Width 12
+[robot_patrol_node-1] [INFO] [1718923696.070795710] [robot_patrol_node]: Insufficiently wide (required 70)
+[ERROR] [robot_patrol_node-1]: process has died [pid 5778, exit code -11, cmd '/home/user/install/robot_patrol/lib/robot_patrol/robot_patrol_node --ros-args'].
+user:~$
+```

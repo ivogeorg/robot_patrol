@@ -363,10 +363,8 @@ void Patrol::velocity_callback() {
 
     // globals that control range and bias can be set elsewhere
 
-    // DEBUG
-    // debugging new algorithm
+    // TODO: use is_extended as argument
     find_direction_buffers(false);
-    // end DEBUG
 
     // find_direction_heuristic(extended_angle_range_, dir_safety_bias_,
     //                       DirPref::NONE); // true = extend side ranges
@@ -868,12 +866,37 @@ void Patrol::find_direction_buffers(bool extended) {
                              laser_scan_data_.ranges.end());
 
   // 1. In a circular array, find the first discontinuity
-  int size = static_cast<int>(ranges.size());
+  int size = static_cast<int>(ranges.size()); 
+
+  int init_ix, stop_ix;
+  if (extended) {
+    init_ix = 0;
+    stop_ix = size;
+  } else { //normal
+    init_ix = RIGHT - BUFFER;
+    stop_ix = LEFT + BUFFER;
+  }
+
+  // No go. One is a circular array, the other is not.
+  // break conditions won't work for both cases
 
 
 
   // TODO: Apply +/- pi rad constraint when not "extended" (1 place)
   // Probably the easiest!
+  // 1. control the start and end indices
+  // 2. add buffers on both sides of the 2 pi search range
+  // So:
+  // 1. right_index, left_index
+  // 2. if normal, right_index = RIGHT - BUFFER
+  //               left_index = LEFT + BUFFER
+  //    else (that is, extended)
+  //               right_index = 0
+  //               left_index = size
+  // 3. parametrize the 3 loops
+  //    1. first discontinuity
+  //    2. marke obstacles and clear
+  //    3. identify clear spans
 
 
 
