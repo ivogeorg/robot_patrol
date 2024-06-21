@@ -16,6 +16,8 @@ A turtlebot3 patrolling the simulated and real robot pen/polygon. Patrolling mea
    3. A buffer-based robot-clearance algorithm for filtering candidate directions. _Forward obstacles are identified against the background of the walls. Clear spans are identified in a 360-deg circular array and safety buffer angles are used to pad each clear span at each end. Clear spans are then filtered by their resulting clearance and the remaining ones are sorted by range size. This last algorithm was motivated primarily by the existence of traffic-sign base obstacles that are both below the LIDAR scan plane and are wider than the widest traffic sign place, creating a hazard of catching a robot wheel on a traffic-sign base._
 4. Both (2) and (3) can be boosted to an extended range for direction search. This is done automatically upon encountering anomalous situations, like being too close to an obstacle or oscillating between two directions without moving. 
 5. If the robot is too close to an obstacle, in particular closer than `range_min`, it is able to recognize the situation and back up to farther than `OBSTACLE_FWD_PROXIMITY` (0.35 m).
+6. Despite algorithm (3), the robot had a problem seeing one of the signs and pushed it out toward the wall. It did identify all other obstacles and stayed away from them. It also successfully identified oscillation between two directions in the 180-deg span, both with obstacles, and extricated itself by backing up and extending the direction search to the full 360-deg circular array of the scan data.
+7. NOTE: The lab environment log level is set at `DEBUG`, so there might be more details shown on the terminal than in the simulator, which is set to `INFO`.
 
 #### Laser scan orientation and parameterization
 

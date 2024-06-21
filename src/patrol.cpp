@@ -498,17 +498,17 @@ void Patrol::laser_scan_callback(
   }
 
   // DEBUG
-  int inf_ct = 0;
-  for (auto &d : laser_scan_data_.ranges)
-    if (std::isinf(d))
-      ++inf_ct;
-  RCLCPP_DEBUG(this->get_logger(), "Num inf: %d", inf_ct);
+//   int inf_ct = 0;
+//   for (auto &d : laser_scan_data_.ranges)
+//     if (std::isinf(d))
+//       ++inf_ct;
+//   RCLCPP_DEBUG(this->get_logger(), "Num inf: %d", inf_ct);
   // end DEBUG
 
   have_laser_ = true;
 
-  RCLCPP_DEBUG(this->get_logger(), "Distance to the left is %f",
-               laser_scan_data_.ranges[LEFT]);
+//   RCLCPP_DEBUG(this->get_logger(), "Distance to the left is %f",
+//                laser_scan_data_.ranges[LEFT]);
 }
 
 // subscriber
@@ -888,17 +888,17 @@ void Patrol::find_direction_buffers(bool extended) {
 
   int index_zero = (i + 1) % size;
   // DEBUG
-  RCLCPP_INFO(this->get_logger(), "index_zero: %d", index_zero);
+  RCLCPP_DEBUG(this->get_logger(), "index_zero: %d", index_zero);
   switch (first_disc_type) {
   case DiscontinuityType::DROP:
-    RCLCPP_INFO(this->get_logger(), "first_disc_type: DiscontinuityType::DROP");
+    RCLCPP_DEBUG(this->get_logger(), "first_disc_type: DiscontinuityType::DROP");
     break;
   case DiscontinuityType::RISE:
-    RCLCPP_INFO(this->get_logger(), "first_disc_type: DiscontinuityType::RISE");
+    RCLCPP_DEBUG(this->get_logger(), "first_disc_type: DiscontinuityType::RISE");
     break;
   case DiscontinuityType::NONE:
   default:
-    RCLCPP_INFO(this->get_logger(), "first_disc_type: DiscontinuityType::NONE");
+    RCLCPP_DEBUG(this->get_logger(), "first_disc_type: DiscontinuityType::NONE");
     break;
   }
   // end DEBUG
@@ -911,10 +911,10 @@ void Patrol::find_direction_buffers(bool extended) {
   // DEBUG
   switch (marker) {
   case LaserTargetType::CLEAR:
-    RCLCPP_INFO(this->get_logger(), "marker: LaserTargetType::CLEAR");
+    RCLCPP_DEBUG(this->get_logger(), "marker: LaserTargetType::CLEAR");
     break;
   case LaserTargetType::OBSTACLE:
-    RCLCPP_INFO(this->get_logger(), "marker: LaserTargetType::OBSTACLE");
+    RCLCPP_DEBUG(this->get_logger(), "marker: LaserTargetType::OBSTACLE");
     break;
   }
   // end DEBUG
@@ -971,7 +971,7 @@ void Patrol::find_direction_buffers(bool extended) {
       end_ix = i - 1; // don't count the beginning of the obstacle
       clear_spans.push_back(std::make_pair(start_ix, end_ix));
       // DEBUG
-      RCLCPP_INFO(this->get_logger(), "Clear span: [%d, %d]", start_ix, end_ix);
+      RCLCPP_DEBUG(this->get_logger(), "Clear span: [%d, %d]", start_ix, end_ix);
       // end DEBUG
       ++num_clear_spans;
     }
@@ -982,7 +982,7 @@ void Patrol::find_direction_buffers(bool extended) {
         end_ix = i;
         clear_spans.push_back(std::make_pair(start_ix, end_ix));
         // DEBUG
-        RCLCPP_INFO(this->get_logger(), "Clear span: [%d, %d]", start_ix,
+        RCLCPP_DEBUG(this->get_logger(), "Clear span: [%d, %d]", start_ix,
                     end_ix);
         // end DEBUG
         ++num_clear_spans;
@@ -992,7 +992,7 @@ void Patrol::find_direction_buffers(bool extended) {
   }
 
   // DEBUG
-  RCLCPP_INFO(this->get_logger(), "Num clear spans: %d",
+  RCLCPP_DEBUG(this->get_logger(), "Num clear spans: %d",
               static_cast<int>(clear_spans.size()));
   // end DEBUG
 
@@ -1014,7 +1014,7 @@ void Patrol::find_direction_buffers(bool extended) {
     // width in a circular array!
     std::tie(start_ix, end_ix) = span;
     // DEBUG
-    RCLCPP_INFO(this->get_logger(), "Candidate span [%d, %d]", start_ix,
+    RCLCPP_DEBUG(this->get_logger(), "Candidate span [%d, %d]", start_ix,
                 end_ix);
     // end DEBUG
     if (end_ix >= start_ix) { // normal difference
@@ -1023,7 +1023,7 @@ void Patrol::find_direction_buffers(bool extended) {
       width = size - (start_ix - 1 - end_ix);
     }
     // DEBUG
-    RCLCPP_INFO(this->get_logger(), "Width %d", width);
+    RCLCPP_DEBUG(this->get_logger(), "Width %d", width);
     // end DEBUG
 
     if (width - 2 * BUFFER > ROBOT_CLEARANCE) {
@@ -1032,7 +1032,7 @@ void Patrol::find_direction_buffers(bool extended) {
       end_ix = (end_ix - BUFFER + size) % size;
 
       // DEBUG
-      RCLCPP_INFO(this->get_logger(), "Sufficiently wide");
+      RCLCPP_DEBUG(this->get_logger(), "Sufficiently wide");
       // end DEBUG
 
       // find the largest range and its index
@@ -1070,14 +1070,14 @@ void Patrol::find_direction_buffers(bool extended) {
       // if not extended, and there is a constrained direction, add it
 
       // DEBUG
-      RCLCPP_INFO(this->get_logger(),
+      RCLCPP_DEBUG(this->get_logger(),
                   "Buffered span: start_ix = %d, end_ix = %d, "
                   "largest_range_index = %d, largest_range = %f",
                   start_ix, end_ix, largest_range_index, largest_range);
       // end DEBUG
     } else {
       // DEBUG
-      RCLCPP_INFO(this->get_logger(), "Insufficiently wide (required %d)",
+      RCLCPP_DEBUG(this->get_logger(), "Insufficiently wide (required %d)",
                   ROBOT_CLEARANCE);
       // end DEBUG
     }
