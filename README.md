@@ -8,6 +8,12 @@ A turtlebot3 patrolling the simulated and real robot pen/polygon. Patrolling mea
 `ros2 launch turtlebot3_gazebo main_turtlebot3_lab.launch.xml`  
 `ros2 launch robot_patrol start_patrolling.launch.py`
 
+| Turtlebot 3 Lab | Live |
+| --- | --- |
+| ![Live screenshot 1](assets/turtlebot-lab-live-1.png) | ![Live screenshot 2](assets/turtlebot-lab-live-2.png) |
+| ![Live screenshot 3](assets/turtlebot-lab-live-3.png) | ![Live screenshot 4](assets/turtlebot-lab-live-4.png) |
+| ![Live screenshot 5](assets/turtlebot-lab-live-5.png) | ![Live screenshot 6](assets/turtlebot-lab-live-6.png) |
+
 1. The program uses the first scan message to initialize its nav parameters.
 2. The robot looks for obstacles in front in a 30-deg arc, centered at the front direction.
 3. Three different nav algorithms were implemented:
