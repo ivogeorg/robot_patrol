@@ -363,8 +363,7 @@ void Patrol::velocity_callback() {
 
     // globals that control range and bias can be set elsewhere
 
-    // TODO: use is_extended as argument
-    find_direction_buffers(false);
+    find_direction_buffers(extended_angle_range_);
 
     // find_direction_heuristic(extended_angle_range_, dir_safety_bias_,
     //                       DirPref::NONE); // true = extend side ranges
@@ -857,8 +856,6 @@ void Patrol::find_direction_heuristic(bool extended, DirSafetyBias dir_bias,
 // spans of indices will each yield a direction
 // from the middle of the span and finally the
 // candidates will be sorted by width and range.
-
-// TODO: Add bool buffers parameter!
 void Patrol::find_direction_buffers(bool extended) {
   RCLCPP_INFO(this->get_logger(), "Looking for safest direction");
 
@@ -866,39 +863,7 @@ void Patrol::find_direction_buffers(bool extended) {
                              laser_scan_data_.ranges.end());
 
   // 1. In a circular array, find the first discontinuity
-  int size = static_cast<int>(ranges.size()); 
-
-  int init_ix, stop_ix;
-  if (extended) {
-    init_ix = 0;
-    stop_ix = size;
-  } else { //normal
-    init_ix = RIGHT - BUFFER;
-    stop_ix = LEFT + BUFFER;
-  }
-
-  // No go. One is a circular array, the other is not.
-  // break conditions won't work for both cases
-
-
-
-  // TODO: Apply +/- pi rad constraint when not "extended" (1 place)
-  // Probably the easiest!
-  // 1. control the start and end indices
-  // 2. add buffers on both sides of the 2 pi search range
-  // So:
-  // 1. right_index, left_index
-  // 2. if normal, right_index = RIGHT - BUFFER
-  //               left_index = LEFT + BUFFER
-  //    else (that is, extended)
-  //               right_index = 0
-  //               left_index = size
-  // 3. parametrize the 3 loops
-  //    1. first discontinuity
-  //    2. marke obstacles and clear
-  //    3. identify clear spans
-
-
+  int size = static_cast<int>(ranges.size());
 
   double range, next_range;
   DiscontinuityType first_disc_type = DiscontinuityType::NONE;
@@ -991,12 +956,6 @@ void Patrol::find_direction_buffers(bool extended) {
   bool in_clear_span = !obstacles[index_zero];
   int num_clear_spans = 0;
 
-
-
-  // TODO: Apply +/- pi rad constraint when not "extended" (2 place)
-
-
-
   for (i = index_zero;; i = (i + 1) % size) {
     if (!in_clear_span && !obstacles[i]) { // obstacle is over
       in_clear_span = true;
@@ -1040,6 +999,9 @@ void Patrol::find_direction_buffers(bool extended) {
   //    - find its largest range and index
   //    - append to dir_candidates
 
+  enum class DirectionType { NORMAL, EXTENDED };
+  std::vector<std::tuple<DirectionType, double, int>> tagged_candidates;
+
   std::vector<std::pair<double, int>> dir_candidates;
   int width;
 
@@ -1059,13 +1021,6 @@ void Patrol::find_direction_buffers(bool extended) {
     RCLCPP_INFO(this->get_logger(), "Width %d", width);
     // end DEBUG
 
-
-
-    // TODO: Apply +/- pi rad constraint when not "extended" (3 place)
-    // TODO: calculate the "width" at a distance
-
-
-
     if (width - 2 * BUFFER > ROBOT_WIDTH) {
       // modify the indices
       start_ix = (start_ix + BUFFER) % size;
@@ -1076,22 +1031,38 @@ void Patrol::find_direction_buffers(bool extended) {
       // end DEBUG
 
       // find the largest range and its index
-      double largest_range = 0.0;
-      int largest_range_index = -1;
+      double largest_range = 0.0, largest_constrained_range = 0.0;
+      int largest_range_index = -1, largest_constrained_range_index = -1;
 
       for (i = start_ix;; i = (i + 1) % size) {
         if (ranges[i] > largest_range) {
           largest_range = ranges[i];
           largest_range_index = i;
         }
+        if (i >= RIGHT && i <= LEFT) {
+          if (ranges[i] > largest_constrained_range) {
+            largest_constrained_range = ranges[i];
+            largest_constrained_range_index = i;
+          }
+        }
 
         if (i == (end_ix + 1) % size)
           break;
       }
 
+      // append to tagged_candidates
+      tagged_candidates.push_back(std::make_tuple(
+          DirectionType::EXTENDED, largest_range, largest_range_index));
+      if (largest_constrained_range_index > 0)
+        tagged_candidates.push_back(
+            std::make_tuple(DirectionType::NORMAL, largest_constrained_range,
+                            largest_constrained_range_index));
+
       // append to dir_candidates
-      dir_candidates.push_back(
-          std::make_pair(largest_range, largest_range_index));
+      //   dir_candidates.push_back(
+      //       std::make_pair(largest_range, largest_range_index));
+
+      // if not extended, and there is a constrained direction, add it
 
       // DEBUG
       RCLCPP_INFO(this->get_logger(),
@@ -1108,19 +1079,37 @@ void Patrol::find_direction_buffers(bool extended) {
   }
 
   // 5. Sort by range in descending order
-  std::sort(dir_candidates.begin(), dir_candidates.end(),
-            [](const std::pair<double, int> &a,
-               const std::pair<double, int> &b) { return a.first > b.first; });
+
+  std::sort(tagged_candidates.begin(), tagged_candidates.end(),
+            [extended](const std::tuple<DirectionType, double, int> &c,
+                       const std::tuple<DirectionType, double, int> &d) {
+              if (!extended && std::get<0>(c) == DirectionType::NORMAL &&
+                  std::get<0>(d) == DirectionType::EXTENDED)
+                return true; // if not extended, bais on NORMAL
+              else
+                return std::get<1>(c) > std::get<1>(d); // bias on range
+            });
 
   // 6. Select the the index of the top sorted element
   //   calalculate the angle relative to angle zero (FRONT)
   //   negative - CW, positive - CCW, angle_increment is in radians
 
-  direction_ = (dir_candidates[0].second - FRONT) * ANGLE_INCREMENT;
+  //   direction_ = (dir_candidates[0].second - FRONT) * ANGLE_INCREMENT;
+
+  DirectionType dir_type;
+  double candidate_range;
+  int candidate_index;
+  std::tie(dir_type, candidate_range, candidate_index) = tagged_candidates[0];
+  direction_ = (candidate_index - FRONT) * ANGLE_INCREMENT;
+  
   // DEBUG
+  //   RCLCPP_INFO(this->get_logger(),
+  //               "Recommended direction %f rad with range %f m", direction_,
+  //               dir_candidates[0].first);
   RCLCPP_INFO(this->get_logger(),
-              "Recommended direction %f rad with range %f m", direction_,
-              dir_candidates[0].first);
+              "Recommended %s direction %f rad with range %f m",
+              dir_type == DirectionType::EXTENDED ? "extended" : "normal",
+              direction_, candidate_range);
   // end DEBUG
 
   // 7. Restore extended range and bias defaults
