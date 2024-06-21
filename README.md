@@ -12,8 +12,8 @@ A turtlebot3 patrolling the simulated and real robot pen/polygon. Patrolling mea
 2. The robot looks for obstacles in front in a 30-deg arc, centered at the front direction.
 3. Three different nav algorithms were implemented:
    1. The simple "wall follower" from the quiz code. _This did not meet the requirements for rotating for looking for new direction._
-   2. A heuristic-based safety-criterion algorithm for filtering candidate directions. _Directions are sorted on the basis of how close the neiboring directions' directions form an inverse quadratic function, and upon equality, on the size of the range._
-   3. A buffer-based robot-clearance algorithm for filtering candidate directions. _Forward obstacles are identified against the background of the walls. Clear spans are identified in a 360-deg circular array and safety buffer angles are used to pad each clear span at each end. Clear spans are then filtered by their resulting clearance and the remaining ones are sorted by range size. This last algorithm was motivated primarily by the existence of traffic-sign base obstacles that are both below the LIDAR scan plane and are wider than the widest traffic sign place, creating a hazard of catching a robot wheel on a traffic-sign base._
+   2. `find_direction_heuristic`, a heuristic-based safety-criterion algorithm for filtering candidate directions. _Directions are sorted on the basis of how close the neiboring directions' directions form an inverse quadratic function, and upon equality, on the size of the range._
+   3. `find_direction_buffers`, a buffer-based robot-clearance algorithm for filtering candidate directions. _Forward obstacles are identified against the background of the walls. Clear spans are identified in a 360-deg circular array and safety buffer angles are used to pad each clear span at each end. Clear spans are then filtered by their resulting clearance and the remaining ones are sorted by range size. This last algorithm was motivated primarily by the existence of traffic-sign base obstacles that are both below the LIDAR scan plane and are wider than the widest traffic sign place, creating a hazard of catching a robot wheel on a traffic-sign base._
 4. Both (2) and (3) can be boosted to an extended range for direction search. This is done automatically upon encountering anomalous situations, like being too close to an obstacle or oscillating between two directions without moving. 
 5. If the robot is too close to an obstacle, in particular closer than `range_min`, it is able to recognize the situation and back up to farther than `OBSTACLE_FWD_PROXIMITY` (0.35 m).
 6. Despite algorithm (3), the robot had a problem seeing one of the signs and pushed it out toward the wall. It did identify all other obstacles and stayed away from them. It also successfully identified oscillation between two directions in the 180-deg span, both with obstacles, and extricated itself by backing up and extending the direction search to the full 360-deg circular array of the scan data.
@@ -373,10 +373,10 @@ The actual TurtleBot3 lab.
    3. Restart circular loop at `index_zero` until `(index_zero - 1 + size) % size`.
       1. If discontinuity was a `DROP`, it's the beginning of an obstacle, so start marking with `1`.
       2. If discontinuity was a `RISE`, it's the end of an obstacle, so start marking with `0`. 
-7. (suspicious) More robust handling of `inf`.
+7. ~(suspicious) More robust handling of `inf`.~
    1. Since `inf` does not compare, it is not caught by this algorithm.
    2. After the non-inf a handled
-8. `F2B_DIFF_THRESHOLD` problem (see [errata.md](errata.md)). 
+8. ~`F2B_DIFF_THRESHOLD` problem (see [errata.md](errata.md)).~
    1. It's happening repeatedly, at the same spot, and the robot continues after restart at the same spot.
    2. Only two short spans are identified and the large wall span is not!
    3. It seems to stop BEFORE reaching the 0.35 m stopping distance from a wall! It shouldn't be looking for a new direction there.
