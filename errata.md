@@ -6165,3 +6165,30 @@ With screenshot. Works at restart.
 [ERROR] [robot_patrol_node-1]: process has died [pid 5778, exit code -11, cmd '/home/user/install/robot_patrol/lib/robot_patrol/robot_patrol_node --ros-args'].
 user:~$
 ```
+start_ix remains uninitialized!
+
+```
+robot_patrol_node-1] [INFO] [1718932915.872514330] [robot_patrol_node]: Laser scan parametrized
+[robot_patrol_node-1]
+[robot_patrol_node-1] [WARN] [1718932915.971716761] [robot_patrol_node]: Warning: (pkg: robot_patrol, src: patrol.cpp) in State::STOPPED last_state_ switch, came from State::STOPPED
+[robot_patrol_node-1] [INFO] [1718932915.971775252] [robot_patrol_node]: Stopped. Obstacle in front
+[robot_patrol_node-1] [INFO] [1718932916.071625789] [robot_patrol_node]: Looking for safest direction
+[robot_patrol_node-1] [INFO] [1718932916.071693478] [robot_patrol_node]: index_zero: 45
+[robot_patrol_node-1] [INFO] [1718932916.071708572] [robot_patrol_node]: first_disc_type: DiscontinuityType::RISE
+[robot_patrol_node-1] [INFO] [1718932916.071721642] [robot_patrol_node]: marker: LaserTargetType::CLEAR
+[robot_patrol_node-1] [INFO] [1718932916.071809593] [robot_patrol_node]: Clear span: [1734333912, 341]
+[robot_patrol_node-1] [INFO] [1718932916.071830056] [robot_patrol_node]: Clear span: [392, 448]
+[robot_patrol_node-1] [INFO] [1718932916.071855129] [robot_patrol_node]: Clear span: [487, 628]
+[robot_patrol_node-1] [INFO] [1718932916.071872283] [robot_patrol_node]: Num clear spans: 3
+[robot_patrol_node-1] [INFO] [1718932916.071884997] [robot_patrol_node]: Candidate span [1734333912, 341]
+[robot_patrol_node-1] [INFO] [1718932916.071897483] [robot_patrol_node]: Width -1734332910
+[robot_patrol_node-1] [INFO] [1718932916.071929534] [robot_patrol_node]: Insufficiently wide (required 80)
+[robot_patrol_node-1] [INFO] [1718932916.071944683] [robot_patrol_node]: Candidate span [392, 448]
+[robot_patrol_node-1] [INFO] [1718932916.071958056] [robot_patrol_node]: Width 57
+[robot_patrol_node-1] [INFO] [1718932916.071971489] [robot_patrol_node]: Insufficiently wide (required 80)
+[robot_patrol_node-1] [INFO] [1718932916.071984904] [robot_patrol_node]: Candidate span [487, 628]
+[robot_patrol_node-1] [INFO] [1718932916.071998274] [robot_patrol_node]: Width 142
+[robot_patrol_node-1] [INFO] [1718932916.072011263] [robot_patrol_node]: Insufficiently wide (required 80)
+[ERROR] [robot_patrol_node-1]: process has died [pid 3328, exit code -11, cmd '/home/user/install/robot_patrol/lib/robot_patrol/robot_patrol_node --ros-args'].
+user:~$ ros2 launch robot_patrol start_patrolling.launch.py
+```

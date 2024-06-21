@@ -1,5 +1,4 @@
 #include "geometry_msgs/msg/detail/twist__struct.hpp"
-// #include "geometry_msgs/msg/pose.hpp"
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/detail/odometry__struct.hpp"
@@ -126,16 +125,16 @@ private:
   // find direction with buffers
   enum class DiscontinuityType { NONE, DROP, RISE };
   enum class LaserTargetType { CLEAR, OBSTACLE };
+  enum class DirectionType { NORMAL, EXTENDED };
+
   const double F2B_RATIO_THRESHOLD = 0.5; // foreground to background
   //   const double F2B_DIFF_THRESHOLD = 0.65; // foreground to background
   const double F2B_DIFF_THRESHOLD = 0.60; // foreground to background
 
   // TODO: calculate in function
-  // DEBUG
-  const int BUFFER = 35; // buffer angle to add to clear spans
-  //   const int BUFFER = 22;              // buffer angle to add to clear spans
-  // end DEBUG
-  const int ROBOT_WIDTH = 2 * BUFFER; // filter criterion for clear spans
+  // This is about 2 * robot width (from URDF model)
+  const int BUFFER = 40;                  // buffer angle to add to clear spans
+  const int ROBOT_CLEARANCE = 2 * BUFFER; // filter criterion for clear spans
   // end TODO
 
   // Misc. parameters
@@ -308,11 +307,18 @@ void Patrol::velocity_callback() {
         RCLCPP_INFO(this->get_logger(), "Too close to obstacle");
         RCLCPP_INFO(this->get_logger(), "Backing up...");
       } else if (!obs_or_clr) {
+
         // first call with data after constructor
-        cmd_vel_msg_.linear.x = LINEAR_BASE;
+        // cmd_vel_msg_.linear.x = LINEAR_BASE;
+        // cmd_vel_msg_.angular.z = 0.0;
+        // state_ = State::FORWARD;
+        // RCLCPP_INFO(this->get_logger(), "Going forward...\n");
+
+        cmd_vel_msg_.linear.x = 0.0;
         cmd_vel_msg_.angular.z = 0.0;
-        state_ = State::FORWARD;
-        RCLCPP_INFO(this->get_logger(), "Going forward...\n");
+        state_ = State::FIND_NEW_DIR;
+        RCLCPP_INFO(this->get_logger(), "Looking for direction to go...\n");
+
       } else { // stopped, with obstacle
         cmd_vel_msg_.linear.x = 0.0;
         cmd_vel_msg_.angular.z = 0.0;
@@ -948,6 +954,19 @@ void Patrol::find_direction_buffers(bool extended) {
   // 3. In a circular array, identify the clear spans
 
   std::vector<std::pair<int, int>> clear_spans;
+
+  // TODO: somehow start_ix can remain uninitialized before use!!!!
+  /**
+  [robot_patrol_node-1] [INFO] [1718932916.071721642] [robot_patrol_node]: marker: LaserTargetType::CLEAR
+[robot_patrol_node-1] [INFO] [1718932916.071809593] [robot_patrol_node]: Clear span: [1734333912, 341]
+[robot_patrol_node-1] [INFO] [1718932916.071830056] [robot_patrol_node]: Clear span: [392, 448]
+[robot_patrol_node-1] [INFO] [1718932916.071855129] [robot_patrol_node]: Clear span: [487, 628]
+[robot_patrol_node-1] [INFO] [1718932916.071872283] [robot_patrol_node]: Num clear spans: 3
+[robot_patrol_node-1] [INFO] [1718932916.071884997] [robot_patrol_node]: Candidate span [1734333912, 341]
+[robot_patrol_node-1] [INFO] [1718932916.071897483] [robot_patrol_node]: Width -1734332910
+[robot_patrol_node-1] [INFO] [1718932916.071929534] [robot_patrol_node]: Insufficiently wide (required 80)
+*/
+
   int start_ix, end_ix;
   // starting at index_zero
   // whether clear or obstacle depends on the
@@ -959,7 +978,13 @@ void Patrol::find_direction_buffers(bool extended) {
   for (i = index_zero;; i = (i + 1) % size) {
     if (!in_clear_span && !obstacles[i]) { // obstacle is over
       in_clear_span = true;
+
+      // TODO: how and where to initialize start_ix for the
+      //       first span???
       start_ix = i;
+
+
+
     } else if (in_clear_span && obstacles[i]) { // obstacle starts
       in_clear_span = false;
       end_ix = i - 1; // don't count the beginning of the obstacle
@@ -992,14 +1017,13 @@ void Patrol::find_direction_buffers(bool extended) {
 
   // 4. Apply buffers and filter by width
   // 22 indices on both sides of every clear span
-  // minimum width is robot_width, which is 44
+  // minimum width is robot_CLEARANCE, which is 44
   // define std::vector<std::pair<double, int>> dir_candidates for
   // (largest_range, direction index) if remaining width of a clear span is >
   // 44:
   //    - find its largest range and index
   //    - append to dir_candidates
 
-  enum class DirectionType { NORMAL, EXTENDED };
   std::vector<std::tuple<DirectionType, double, int>> tagged_candidates;
 
   std::vector<std::pair<double, int>> dir_candidates;
@@ -1021,7 +1045,7 @@ void Patrol::find_direction_buffers(bool extended) {
     RCLCPP_INFO(this->get_logger(), "Width %d", width);
     // end DEBUG
 
-    if (width - 2 * BUFFER > ROBOT_WIDTH) {
+    if (width - 2 * BUFFER > ROBOT_CLEARANCE) {
       // modify the indices
       start_ix = (start_ix + BUFFER) % size;
       end_ix = (end_ix - BUFFER + size) % size;
@@ -1073,7 +1097,7 @@ void Patrol::find_direction_buffers(bool extended) {
     } else {
       // DEBUG
       RCLCPP_INFO(this->get_logger(), "Insufficiently wide (required %d)",
-                  ROBOT_WIDTH);
+                  ROBOT_CLEARANCE);
       // end DEBUG
     }
   }
@@ -1101,7 +1125,7 @@ void Patrol::find_direction_buffers(bool extended) {
   int candidate_index;
   std::tie(dir_type, candidate_range, candidate_index) = tagged_candidates[0];
   direction_ = (candidate_index - FRONT) * ANGLE_INCREMENT;
-  
+
   // DEBUG
   //   RCLCPP_INFO(this->get_logger(),
   //               "Recommended direction %f rad with range %f m", direction_,
