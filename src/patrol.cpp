@@ -954,20 +954,7 @@ void Patrol::find_direction_buffers(bool extended) {
   // 3. In a circular array, identify the clear spans
 
   std::vector<std::pair<int, int>> clear_spans;
-
-  // TODO: somehow start_ix can remain uninitialized before use!!!!
-  /**
-  [robot_patrol_node-1] [INFO] [1718932916.071721642] [robot_patrol_node]: marker: LaserTargetType::CLEAR
-[robot_patrol_node-1] [INFO] [1718932916.071809593] [robot_patrol_node]: Clear span: [1734333912, 341]
-[robot_patrol_node-1] [INFO] [1718932916.071830056] [robot_patrol_node]: Clear span: [392, 448]
-[robot_patrol_node-1] [INFO] [1718932916.071855129] [robot_patrol_node]: Clear span: [487, 628]
-[robot_patrol_node-1] [INFO] [1718932916.071872283] [robot_patrol_node]: Num clear spans: 3
-[robot_patrol_node-1] [INFO] [1718932916.071884997] [robot_patrol_node]: Candidate span [1734333912, 341]
-[robot_patrol_node-1] [INFO] [1718932916.071897483] [robot_patrol_node]: Width -1734332910
-[robot_patrol_node-1] [INFO] [1718932916.071929534] [robot_patrol_node]: Insufficiently wide (required 80)
-*/
-
-  int start_ix, end_ix;
+  int start_ix = index_zero, end_ix;
   // starting at index_zero
   // whether clear or obstacle depends on the
   // marker type at index_zero (that is, there
@@ -978,13 +965,7 @@ void Patrol::find_direction_buffers(bool extended) {
   for (i = index_zero;; i = (i + 1) % size) {
     if (!in_clear_span && !obstacles[i]) { // obstacle is over
       in_clear_span = true;
-
-      // TODO: how and where to initialize start_ix for the
-      //       first span???
       start_ix = i;
-
-
-
     } else if (in_clear_span && obstacles[i]) { // obstacle starts
       in_clear_span = false;
       end_ix = i - 1; // don't count the beginning of the obstacle
