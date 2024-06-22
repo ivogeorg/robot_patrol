@@ -72,7 +72,8 @@ private:
   // obstacles is brittle and unreliable, so pick a spread.
   // Split in two and center in the direction.
   // The _FROM and _TO ranges below are to be used with this.
-  const double DIRECTION_SPREAD_DEG = 30;
+  //   const double DIRECTION_SPREAD_DEG = 30;
+  const double DIRECTION_SPREAD_DEG = 40;
 
   // Ranges index for "right"
   int RIGHT, RIGHT_FROM, RIGHT_TO;
@@ -178,8 +179,9 @@ private:
 
   // utility functions
   void parametrize_laser_scanner();
-  std::tuple<bool, float> obstacle_in_range(int from, int to, int ranges_size,
-                                            double dist);
+  std::tuple<bool, float> obstacle_in_range_cir(int from, int to,
+                                                int ranges_size, double dist);
+  std::tuple<bool, float> obstacle_in_range_lin(int from, int to, double dist);
   double yaw_from_quaternion(double x, double y, double z, double w);
   void find_direction_heuristic(bool extended = false,
                                 DirSafetyBias dir_bias = DirSafetyBias::ANGLE,
@@ -212,6 +214,8 @@ Patrol::Patrol() : Node("robot_patrol_node") {
   is_oscillating_ = false;
   is_too_close_to_obstacle_ = false;
   extended_angle_range_ = false;
+  cmd_vel_msg_.linear.x = 0.0;
+  cmd_vel_msg_.angular.z = 0.0;
 }
 
 // callbacks
@@ -227,254 +231,62 @@ void Patrol::velocity_callback() {
     RCLCPP_INFO(this->get_logger(), "No nav data. Velocity callback no-op.");
     return;
   } else if (!laser_scanner_parametrized_) {
-    // data is available but scanner has not parametrized yet
+    // data is available but scanner has not been parametrized yet
     RCLCPP_INFO(this->get_logger(),
                 "Parametrizing laser scanner. Velocity callback no-op.");
     parametrize_laser_scanner();
     return;
   }
 
-  // for obstacle_in_range
-  bool obs_or_clr;
+  // Requirements:
+  // 1. Continuous movement, no stopping.
+  // 2. Linear velocity is always 0.1 m/s.
+  // 3. If no obstacle at the threshold of 0.35 m, go forward (angular = 0.0).
+  // 4. If obstacle at the threshold of 0.35 m:
+  //    1. Find ray with largest range in +/- pi radians.
+  //    2. Calculate angle with front ray and set distance_ to it.
+  //    3. Set angular to distance_ / 2.0.
+
+  // for obstacle_in_range_cir
+  bool is_obstacle = false;
   float inf_ratio;
 
-  switch (state_) {
-  case State::STOPPED:
-    // State::STOPPED is the pivotal state of the state machine
+  std::tie(is_obstacle, inf_ratio) =
+      obstacle_in_range_lin(FRONT_FROM, FRONT_TO, OBSTACLE_FWD_PROXIMITY);
 
-    std::tie(obs_or_clr, inf_ratio) = obstacle_in_range(
-        FRONT_FROM, FRONT_TO, RANGES_SIZE, OBSTACLE_FWD_PROXIMITY);
+  if (!is_obstacle) {
+    cmd_vel_msg_.linear.x = LINEAR_BASE;
+    cmd_vel_msg_.angular.z = 0.0;
+  } else { // obstacle at or under the threshold
+    int size = static_cast<int>(laser_scan_data_.ranges.size());
+    int max_range_ix = -1;
+    double max_range = 0.0, range;
 
-    // The only state that has a switch (last_state_) {}
-    switch (last_state_) {
-    case State::FORWARD:
-    case State::FIND_NEW_DIR:
-      // Should not come here from these states
-      throw InvalidStateError(
-          "ERROR: (pkg: robot_patrol, src: patrol.cpp) came to "
-          "State::STOPPED from invalid last state");
-      break;
-    case State::TURNING:
-      if (!obs_or_clr) {
-        cmd_vel_msg_.linear.x = LINEAR_BASE;
-        cmd_vel_msg_.angular.z = 0.0;
-        state_ = State::FORWARD;
-        RCLCPP_INFO(this->get_logger(), "Going forward...\n");
-      } else { // obstacle in front
-        RCLCPP_INFO(this->get_logger(), "Stopped. Obstacle in front");
-        cmd_vel_msg_.linear.x = 0.0;
-        cmd_vel_msg_.angular.z = 0.0;
-        if (turns_in_a_row_ >= OSCILLATION_THRESHOLD) {
-          is_oscillating_ = true;
-          state_ = State::BACK_UP;
-          RCLCPP_INFO(this->get_logger(), "  \n");
-          RCLCPP_INFO(this->get_logger(), "Oscillation detected");
-          RCLCPP_INFO(this->get_logger(), "Backing up...");
-        } else {
-          cmd_vel_msg_.linear.x = 0.0;
-          cmd_vel_msg_.angular.z = 0.0;
-          state_ = State::FIND_NEW_DIR;
+    // find the largest-range ray
+    for (int i = 0; i < size; ++i) {
+      if (i >= RIGHT && i <= LEFT) { // +/- pi
+        range = laser_scan_data_.ranges[i];
+        if (range > max_range) {
+          max_range = range;
+          max_range_ix = i;
         }
       }
-      break;
-    case State::BACK_UP:
-      // After backing up, find new direction and favor larger angles
-      cmd_vel_msg_.linear.x = 0.0;
-      cmd_vel_msg_.angular.z = 0.0;
-
-      // zero out the current count
-      turns_in_a_row_ = 0;
-      is_oscillating_ = false;
-      is_too_close_to_obstacle_ = false;
-
-      // find a larger angle (find_direction_heuristic will restore defaults)
-      RCLCPP_INFO(this->get_logger(),
-                  "Extending the angle range to search for new direction\n");
-      extended_angle_range_ = true;
-      dir_safety_bias_ = DirSafetyBias::ANGLE;
-
-      state_ = State::FIND_NEW_DIR;
-      break;
-    case State::STOPPED:
-      RCLCPP_WARN(this->get_logger(),
-                  "Warning: (pkg: robot_patrol, src: patrol.cpp) "
-                  "in State::STOPPED last_state_ switch, came from "
-                  "State::STOPPED");
-      if (inf_ratio >= INF_RATIO_THRESHOLD) {
-        // first call with data after constructor
-        state_ = State::BACK_UP;
-        is_too_close_to_obstacle_ = true;
-        RCLCPP_INFO(this->get_logger(), "Too close to obstacle");
-        RCLCPP_INFO(this->get_logger(), "Backing up...");
-      } else if (!obs_or_clr) {
-
-        // first call with data after constructor
-        // cmd_vel_msg_.linear.x = LINEAR_BASE;
-        // cmd_vel_msg_.angular.z = 0.0;
-        // state_ = State::FORWARD;
-        // RCLCPP_INFO(this->get_logger(), "Going forward...\n");
-
-        cmd_vel_msg_.linear.x = 0.0;
-        cmd_vel_msg_.angular.z = 0.0;
-        state_ = State::FIND_NEW_DIR;
-        RCLCPP_INFO(this->get_logger(), "Looking for direction to go...\n");
-
-      } else { // stopped, with obstacle
-        cmd_vel_msg_.linear.x = 0.0;
-        cmd_vel_msg_.angular.z = 0.0;
-        state_ = State::FIND_NEW_DIR;
-        RCLCPP_INFO(this->get_logger(), "Stopped. Obstacle in front");
-      }
-      break;
-    default:
-      // shouldn't come here
-      throw InvalidStateError(
-          "ERROR: (pkg: robot_patrol, src: patrol.cpp) defaulted "
-          " in State::STOPPED last_state_ switch");
     }
 
-    last_state_ = State::STOPPED;
-    break;
-  case State::FORWARD:
-    // if no obstacle in front, stay in FORWARD
-    // if obstacle in front, go to TURNING
-    // set cmd_vel_msg_.linear.x = 0.0
-    // set cmd_vel_msg_.angular.z = 0.0
-    std::tie(obs_or_clr, inf_ratio) = obstacle_in_range(
-        FRONT_FROM, FRONT_TO, RANGES_SIZE, OBSTACLE_FWD_PROXIMITY);
+    direction_ = (max_range_ix - FRONT) * ANGLE_INCREMENT;
 
-    if (obs_or_clr) {
-      cmd_vel_msg_.linear.x = 0.0;
-      cmd_vel_msg_.angular.z = 0.0;
-      state_ = State::FIND_NEW_DIR;
-      RCLCPP_INFO(this->get_logger(), "Obstacle in front, stopping");
-    } else {
-      cmd_vel_msg_.linear.x = LINEAR_BASE;
-      cmd_vel_msg_.angular.z = 0.0;
-
-      // clear all anomaly tracking and reporting variables
-      turns_in_a_row_ = 0;
-      is_oscillating_ = false;
-      is_too_close_to_obstacle_ = false;
-    }
-
-    last_state_ = State::FORWARD;
-    break;
-  case State::FIND_NEW_DIR:
-    // find new direction
-    // do not change cmd_vel_msg_
-    // go to TURNING
-
-    // extended ranges to get unstuck and/or oscillating
-
-    // globals that control range and bias can be set elsewhere
-
-    find_direction_buffers(extended_angle_range_);
-
-    // find_direction_heuristic(extended_angle_range_, dir_safety_bias_,
-    //                       DirPref::NONE); // true = extend side ranges
-
-    state_ = State::TURNING;
-    RCLCPP_INFO(this->get_logger(), "Found new direction (robot frame) %f rad",
-                direction_);
-    RCLCPP_DEBUG(this->get_logger(), "Starting yaw %f", yaw_);
-
-    last_state_ = State::FIND_NEW_DIR;
-    break;
-  case State::TURNING:
-    // if not turned in new direction, stay at TURNING
-    // issue cmd_vel_msg_.linear.x = 0.0
-    // issue cmd_vel_msg_.angular.z = direction_ / 2.0
-    // if new direction achieved, go to STOPPED
-    // issue cmd_vel_msg_.linear.x = 0.0
-    // issue cmd_vel_msg_.angular.z = 0.0
-    // this is done to avoid error depending on direction of turning
-
-    static double last_angle;
-    static double turn_angle;
-    static double goal_angle;
-
-    // if not turning, initialize to start
-    if (!turning_) {
-      last_angle = yaw_;
-      turn_angle = 0;
-      goal_angle = direction_;
-    }
-
-    if ((goal_angle > 0 &&
-         (abs(turn_angle + ANGULAR_TOLERANCE) < abs(goal_angle))) ||
-        (goal_angle < 0 && (abs(turn_angle - ANGULAR_TOLERANCE) <
-                            abs(direction_)))) { // need to turn (more)
-      cmd_vel_msg_.linear.x = 0.0;
-      cmd_vel_msg_.angular.z = direction_ / 2.0;
-
-      double temp_yaw = yaw_;
-      double delta_angle = normalize_angle(temp_yaw - last_angle);
-
-      turn_angle += delta_angle;
-      last_angle = temp_yaw;
-
-      turning_ = true;
-    } else {
-      // reached goal angle within tolerance, stop turning
-      RCLCPP_DEBUG(this->get_logger(), "Resulting yaw %f", yaw_);
-      RCLCPP_INFO(this->get_logger(),
-                  "Turned within tolerance of new direction");
-      cmd_vel_msg_.linear.x = 0.0;
-      cmd_vel_msg_.angular.z = 0.0;
-
-      turning_ = false;
-      ++turns_in_a_row_; // track for oscillation
-      state_ = State::STOPPED;
-    }
-
-    last_state_ = State::TURNING;
-    break;
-  case State::BACK_UP: {
-    // backup to escape oscillation between two forward positions
-    // keep backing up if obstacle in front or not reached backup
-    // limit
-
-    // 1. Static vars to track pass-through backing up
-    static geometry_msgs::msg::Point init_pt;
-
-    // 2. Initialize first time around
-    if (!backing_up_)
-      init_pt = odom_data_.pose.pose.position;
-
-    // 3. Get obstacle info and calculate distance backed up
-    double dx = odom_data_.pose.pose.position.x - init_pt.x;
-    double dy = odom_data_.pose.pose.position.y - init_pt.y;
-    double dz = odom_data_.pose.pose.position.z - init_pt.z;
-    double distance = sqrt(dx * dx + dy * dy + dz * dz);
-    std::tie(obs_or_clr, inf_ratio) = obstacle_in_range(
-        BACK_FROM, BACK_TO, RANGES_SIZE, OBSTACLE_BACK_PROXIMITY);
-
-    // 4. Branch on still to go or done
-    if (distance < BACKUP_LIMIT && !obs_or_clr) {
-      cmd_vel_msg_.linear.x = BACKUP_BASE;
-      cmd_vel_msg_.angular.z = 0.0;
-
-      backing_up_ = true;
-    } else { // reached either an obstacle or the limit
-      cmd_vel_msg_.linear.x = 0.0;
-      cmd_vel_msg_.angular.z = 0.0;
-
-      state_ = State::STOPPED;
-      backing_up_ = false;
-    }
-
-    last_state_ = State::BACK_UP;
-  } break;
-  default:
-    // Should not come here!
-    InvalidStateError err("ERROR: (pkg: robot_patrol, src: patrol.cpp) default "
-                          "statement executed in state machine");
-    throw err;
+    cmd_vel_msg_.linear.x = LINEAR_BASE * 0.60;
+    cmd_vel_msg_.angular.z = direction_ * 0.60;
   }
 
   // single point of publishing
   publisher_->publish(cmd_vel_msg_);
+
+  // DEBUG
+  RCLCPP_INFO(this->get_logger(), "(%s) x = %f, z = %f",
+              is_obstacle ? "obs" : "clr", cmd_vel_msg_.linear.x,
+              cmd_vel_msg_.angular.z);
+  // end DEBUG
 }
 
 // subscriber
@@ -498,17 +310,17 @@ void Patrol::laser_scan_callback(
   }
 
   // DEBUG
-//   int inf_ct = 0;
-//   for (auto &d : laser_scan_data_.ranges)
-//     if (std::isinf(d))
-//       ++inf_ct;
-//   RCLCPP_DEBUG(this->get_logger(), "Num inf: %d", inf_ct);
+  //   int inf_ct = 0;
+  //   for (auto &d : laser_scan_data_.ranges)
+  //     if (std::isinf(d))
+  //       ++inf_ct;
+  //   RCLCPP_DEBUG(this->get_logger(), "Num inf: %d", inf_ct);
   // end DEBUG
 
   have_laser_ = true;
 
-//   RCLCPP_DEBUG(this->get_logger(), "Distance to the left is %f",
-//                laser_scan_data_.ranges[LEFT]);
+  //   RCLCPP_DEBUG(this->get_logger(), "Distance to the left is %f",
+  //                laser_scan_data_.ranges[LEFT]);
 }
 
 // subscriber
@@ -617,7 +429,7 @@ double Patrol::yaw_from_quaternion(double x, double y, double z, double w) {
 }
 
 std::tuple<bool, float>
-Patrol::obstacle_in_range(int from, int to, int ranges_size, double dist) {
+Patrol::obstacle_in_range_cir(int from, int to, int ranges_size, double dist) {
   // get a stable local version
   // while it may still have values from several callbacks,
   // it is likely less inconsistent than the variable which
@@ -639,6 +451,32 @@ Patrol::obstacle_in_range(int from, int to, int ranges_size, double dist) {
   }
   RCLCPP_DEBUG(this->get_logger(), "Inf: %d/%d", num_inf, to - from - 1);
   return std::make_tuple(obs_or_clr, num_inf);
+}
+
+std::tuple<bool, float> Patrol::obstacle_in_range_lin(int from, int to,
+                                                      double dist) {
+  int num_inf = 0;
+  bool is_obstacle = false;
+
+  for (int i = from; i <= to; ++i) { // linear span
+    if (std::isinf(laser_scan_data_.ranges[i]))
+      ++num_inf; // count `inf` values in the range
+    else if (laser_scan_data_.ranges[i] <= dist) {
+      is_obstacle = true;
+
+      // DEBUG
+    //   std::cout << i << ", ";
+      // end DEBUG
+    }
+  }
+  // DEBUG
+//   std::cout << '\n';
+  // end DEBUG
+
+
+  RCLCPP_DEBUG(this->get_logger(), "Inf: %d/%d", num_inf, to - from - 1);
+
+  return std::make_tuple(is_obstacle, num_inf);
 }
 
 // A rather overengineered function implementing
@@ -891,14 +729,17 @@ void Patrol::find_direction_buffers(bool extended) {
   RCLCPP_DEBUG(this->get_logger(), "index_zero: %d", index_zero);
   switch (first_disc_type) {
   case DiscontinuityType::DROP:
-    RCLCPP_DEBUG(this->get_logger(), "first_disc_type: DiscontinuityType::DROP");
+    RCLCPP_DEBUG(this->get_logger(),
+                 "first_disc_type: DiscontinuityType::DROP");
     break;
   case DiscontinuityType::RISE:
-    RCLCPP_DEBUG(this->get_logger(), "first_disc_type: DiscontinuityType::RISE");
+    RCLCPP_DEBUG(this->get_logger(),
+                 "first_disc_type: DiscontinuityType::RISE");
     break;
   case DiscontinuityType::NONE:
   default:
-    RCLCPP_DEBUG(this->get_logger(), "first_disc_type: DiscontinuityType::NONE");
+    RCLCPP_DEBUG(this->get_logger(),
+                 "first_disc_type: DiscontinuityType::NONE");
     break;
   }
   // end DEBUG
@@ -971,7 +812,8 @@ void Patrol::find_direction_buffers(bool extended) {
       end_ix = i - 1; // don't count the beginning of the obstacle
       clear_spans.push_back(std::make_pair(start_ix, end_ix));
       // DEBUG
-      RCLCPP_DEBUG(this->get_logger(), "Clear span: [%d, %d]", start_ix, end_ix);
+      RCLCPP_DEBUG(this->get_logger(), "Clear span: [%d, %d]", start_ix,
+                   end_ix);
       // end DEBUG
       ++num_clear_spans;
     }
@@ -983,7 +825,7 @@ void Patrol::find_direction_buffers(bool extended) {
         clear_spans.push_back(std::make_pair(start_ix, end_ix));
         // DEBUG
         RCLCPP_DEBUG(this->get_logger(), "Clear span: [%d, %d]", start_ix,
-                    end_ix);
+                     end_ix);
         // end DEBUG
         ++num_clear_spans;
       }
@@ -993,7 +835,7 @@ void Patrol::find_direction_buffers(bool extended) {
 
   // DEBUG
   RCLCPP_DEBUG(this->get_logger(), "Num clear spans: %d",
-              static_cast<int>(clear_spans.size()));
+               static_cast<int>(clear_spans.size()));
   // end DEBUG
 
   // 4. Apply buffers and filter by width
@@ -1015,7 +857,7 @@ void Patrol::find_direction_buffers(bool extended) {
     std::tie(start_ix, end_ix) = span;
     // DEBUG
     RCLCPP_DEBUG(this->get_logger(), "Candidate span [%d, %d]", start_ix,
-                end_ix);
+                 end_ix);
     // end DEBUG
     if (end_ix >= start_ix) { // normal difference
       width = end_ix - (start_ix - 1 + size) % size;
@@ -1071,14 +913,14 @@ void Patrol::find_direction_buffers(bool extended) {
 
       // DEBUG
       RCLCPP_DEBUG(this->get_logger(),
-                  "Buffered span: start_ix = %d, end_ix = %d, "
-                  "largest_range_index = %d, largest_range = %f",
-                  start_ix, end_ix, largest_range_index, largest_range);
+                   "Buffered span: start_ix = %d, end_ix = %d, "
+                   "largest_range_index = %d, largest_range = %f",
+                   start_ix, end_ix, largest_range_index, largest_range);
       // end DEBUG
     } else {
       // DEBUG
       RCLCPP_DEBUG(this->get_logger(), "Insufficiently wide (required %d)",
-                  ROBOT_CLEARANCE);
+                   ROBOT_CLEARANCE);
       // end DEBUG
     }
   }
