@@ -4,26 +4,67 @@ A turtlebot3 patrolling the simulated and real robot pen/polygon. Patrolling mea
 
 #### Submission notes
 
-`colcon build --packages-select robot_patrol`  
-`ros2 launch turtlebot3_gazebo main_turtlebot3_lab.launch.xml`  
-`ros2 launch robot_patrol start_patrolling.launch.py`
+1. Checkpoint 5 (ROS 2 Topics)
+   1. Running:
+      ```
+      cd ~/ros2_ws/src  
+      git clone https://github.com/ivogeorg/robot_patrol.git  
+      git checkout checkpoint-5  
+      colcon build --packages-select robot_patrol  
+      ros2 launch turtlebot3_gazebo main_turtlebot3_lab.launch.xml  
+      ros2 launch robot_patrol start_patrolling.launch.py  
+      ```
+   2. Screenshots
+      | Turtlebot 3 Lab | Live |
+      | --- | --- |
+      | ![Live screenshot 1](assets/turtlebot-lab-live-1.png) | ![Live screenshot 2](assets/turtlebot-lab-live-2.png) |
+      | ![Live screenshot 3](assets/turtlebot-lab-live-3.png) | ![Live screenshot 4](assets/turtlebot-lab-live-4.png) |
+      | ![Live screenshot 5](assets/turtlebot-lab-live-5.png) | ![Live screenshot 6](assets/turtlebot-lab-live-6.png) |
+   3. Implementation notes
+      1. The program uses the first scan message to initialize its nav parameters.
+      2. The robot looks for obstacles in front in a 30-deg arc, centered at the front direction.
+      3. Three different nav algorithms were implemented:
+         1. The simple "wall follower" from the quiz code. _This did not meet the requirements for rotating for looking for new direction._
+         2. `find_direction_heuristic`, a heuristic-based safety-criterion algorithm for filtering candidate directions. _Directions are sorted on the basis of how close the neiboring directions' directions form an inverse quadratic function, and upon equality, on the size of the range._
+         3. `find_direction_buffers`, a buffer-based robot-clearance algorithm for filtering candidate directions. _Forward obstacles are identified against the background of the walls. Clear spans are identified in a 360-deg circular array and safety buffer angles are used to pad each clear span at each end. Clear spans are then filtered by their resulting clearance and the remaining ones are sorted by range size. This last algorithm was motivated primarily by the existence of traffic-sign base obstacles that are both below the LIDAR scan plane and are wider than the widest traffic sign place, creating a hazard of catching a robot wheel on a traffic-sign base._
+   4. Both (2) and (3) can be boosted to an extended range for direction search. This is done automatically upon encountering anomalous situations, like being too close to an obstacle or oscillating between two directions without moving. 
+   5. If the robot is too close to an obstacle, in particular closer than `range_min`, it is able to recognize the situation and back up to farther than `OBSTACLE_FWD_PROXIMITY` (0.35 m).
+   6. Despite algorithm (3), the robot had a problem seeing one of the signs and pushed it out toward the wall. It did identify all other obstacles and stayed away from them. It also successfully identified oscillation between two directions in the 180-deg span, both with obstacles, and extricated itself by backing up and extending the direction search to the full 360-deg circular array of the scan data.
+   7. NOTE: The lab environment log verbosity level is set to `DEBUG`, so there might be more details shown on the terminal than in the simulator, which is set to `INFO`.  
+2. Checkpoint 6 - Part 1 (ROS 2 Services)
+   1. Running
+   2. Screenshots
+   3. Implementation notes
+      1. For custom messages that are (to be) generated in the same package where they will be used in source code, the following need to be added to the `CMakeLists.txt` file:
+         1. Explicit DEPENDENCIES line for the base message(s) used to construct the custom interface (in this case `sensor_msgs` for `sensor_msgs/LaserScan`):
+            ```
+            rosidl_generate_interfaces(${PROJECT_NAME}
+	            "srv/GetDirection.srv"
+	            DEPENDENCIES sensor_msgs
+            )
+            ```
+         2. To link the generated (type support) library to a package executable (where it is used):
+            ```
+            add_executable(direction_service_node src/direction_service.cpp)
+            ament_target_dependencies(direction_service_node rclcpp)
 
-| Turtlebot 3 Lab | Live |
-| --- | --- |
-| ![Live screenshot 1](assets/turtlebot-lab-live-1.png) | ![Live screenshot 2](assets/turtlebot-lab-live-2.png) |
-| ![Live screenshot 3](assets/turtlebot-lab-live-3.png) | ![Live screenshot 4](assets/turtlebot-lab-live-4.png) |
-| ![Live screenshot 5](assets/turtlebot-lab-live-5.png) | ![Live screenshot 6](assets/turtlebot-lab-live-6.png) |
+            # To link to interfaces defined and generated in the same package:
 
-1. The program uses the first scan message to initialize its nav parameters.
-2. The robot looks for obstacles in front in a 30-deg arc, centered at the front direction.
-3. Three different nav algorithms were implemented:
-   1. The simple "wall follower" from the quiz code. _This did not meet the requirements for rotating for looking for new direction._
-   2. `find_direction_heuristic`, a heuristic-based safety-criterion algorithm for filtering candidate directions. _Directions are sorted on the basis of how close the neiboring directions' directions form an inverse quadratic function, and upon equality, on the size of the range._
-   3. `find_direction_buffers`, a buffer-based robot-clearance algorithm for filtering candidate directions. _Forward obstacles are identified against the background of the walls. Clear spans are identified in a 360-deg circular array and safety buffer angles are used to pad each clear span at each end. Clear spans are then filtered by their resulting clearance and the remaining ones are sorted by range size. This last algorithm was motivated primarily by the existence of traffic-sign base obstacles that are both below the LIDAR scan plane and are wider than the widest traffic sign place, creating a hazard of catching a robot wheel on a traffic-sign base._
-4. Both (2) and (3) can be boosted to an extended range for direction search. This is done automatically upon encountering anomalous situations, like being too close to an obstacle or oscillating between two directions without moving. 
-5. If the robot is too close to an obstacle, in particular closer than `range_min`, it is able to recognize the situation and back up to farther than `OBSTACLE_FWD_PROXIMITY` (0.35 m).
-6. Despite algorithm (3), the robot had a problem seeing one of the signs and pushed it out toward the wall. It did identify all other obstacles and stayed away from them. It also successfully identified oscillation between two directions in the 180-deg span, both with obstacles, and extricated itself by backing up and extending the direction search to the full 360-deg circular array of the scan data.
-7. NOTE: The lab environment log level is set at `DEBUG`, so there might be more details shown on the terminal than in the simulator, which is set to `INFO`.
+            # Get the typesupport target name
+            rosidl_get_typesupport_target(typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+
+            # Link against the generated interface library
+            # NOTE: No keywords (PRIVATE, PUBLIC) or all keywords (can't mix)
+            target_link_libraries(direction_service_node ${typesupport_target})
+            ```            
+
+
+    
+3. Checkpoint 6 - Part 2 (ROS 2 Actions)
+   1. Running
+   2. Screenshots
+   3. Implementation notes
+
 
 #### Laser scan orientation and parameterization
 
