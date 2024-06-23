@@ -303,9 +303,9 @@ void Patrol::velocity_callback() {
   publisher_->publish(cmd_vel_msg_);
 
   // DEBUG
-  RCLCPP_DEBUG(this->get_logger(), "(%s) x = %f, z = %f",
-              is_obstacle ? "obs" : "clr", cmd_vel_msg_.linear.x,
-              cmd_vel_msg_.angular.z);
+//   RCLCPP_DEBUG(this->get_logger(), "(%s) x = %f, z = %f",
+//               is_obstacle ? "obs" : "clr", cmd_vel_msg_.linear.x,
+//               cmd_vel_msg_.angular.z);
   // end DEBUG
 }
 
