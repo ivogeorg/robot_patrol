@@ -52,6 +52,11 @@ private:
   bool turning_;     // supports pass-through code for turning
   bool backing_up_;  // supports pass-through code for backing up
 
+  int num_obstacles; // use to reduce linear and increase angular
+  const double TURN_BASE_MULT_LINEAR = 0.6;
+  const double TURN_BASE_MULT_ANGULAR = 0.65;
+  const double NUM_OBSTACLES_UNIT_MULT = 0.9;
+
   // Laser scanner parametrization and smoothing
 
   // The laser scanner is parametrized to a number of rays.
@@ -144,6 +149,7 @@ private:
   // Robot state machine
   enum class State { STOPPED, FORWARD, FIND_NEW_DIR, TURNING, BACK_UP };
   State state_, last_state_;
+
   class InvalidStateError : public std::runtime_error {
   public:
     InvalidStateError(const std::string &what_arg)
@@ -216,6 +222,7 @@ Patrol::Patrol() : Node("robot_patrol_node") {
   extended_angle_range_ = false;
   cmd_vel_msg_.linear.x = 0.0;
   cmd_vel_msg_.angular.z = 0.0;
+  num_obstacles = 0;
 }
 
 // callbacks
@@ -255,12 +262,16 @@ void Patrol::velocity_callback() {
       obstacle_in_range_lin(FRONT_FROM, FRONT_TO, OBSTACLE_FWD_PROXIMITY);
 
   if (!is_obstacle) {
+    num_obstacles = 0;
     cmd_vel_msg_.linear.x = LINEAR_BASE;
     cmd_vel_msg_.angular.z = 0.0;
   } else { // obstacle at or under the threshold
     int size = static_cast<int>(laser_scan_data_.ranges.size());
     int max_range_ix = -1;
     double max_range = 0.0, range;
+
+    // if too many, reduce linear (optionally, increase angular)
+    ++num_obstacles;
 
     // find the largest-range ray
     for (int i = 0; i < size; ++i) {
@@ -275,15 +286,24 @@ void Patrol::velocity_callback() {
 
     direction_ = (max_range_ix - FRONT) * ANGLE_INCREMENT;
 
-    cmd_vel_msg_.linear.x = LINEAR_BASE * 0.60;
-    cmd_vel_msg_.angular.z = direction_ * 0.60;
+    // NOTE:
+    // The requirements for
+    // linear.x = 0.1 m/s and angular = dir_ / 2.0 m/s
+    // do not result in a remotely robust algorithm. 
+    // Keeping the spirit and general framework of the
+    // required algorithm/behavior, use num_obstacles 
+    // to reduce linear and increase angular on turns.
+    cmd_vel_msg_.linear.x = LINEAR_BASE * TURN_BASE_MULT_LINEAR *
+                            pow(NUM_OBSTACLES_UNIT_MULT, num_obstacles);
+    cmd_vel_msg_.angular.z = direction_ * TURN_BASE_MULT_ANGULAR *
+                             pow(1.0 / NUM_OBSTACLES_UNIT_MULT, num_obstacles);
   }
 
   // single point of publishing
   publisher_->publish(cmd_vel_msg_);
 
   // DEBUG
-  RCLCPP_INFO(this->get_logger(), "(%s) x = %f, z = %f",
+  RCLCPP_DEBUG(this->get_logger(), "(%s) x = %f, z = %f",
               is_obstacle ? "obs" : "clr", cmd_vel_msg_.linear.x,
               cmd_vel_msg_.angular.z);
   // end DEBUG
@@ -465,14 +485,13 @@ std::tuple<bool, float> Patrol::obstacle_in_range_lin(int from, int to,
       is_obstacle = true;
 
       // DEBUG
-    //   std::cout << i << ", ";
+      //   std::cout << i << ", ";
       // end DEBUG
     }
   }
   // DEBUG
-//   std::cout << '\n';
+  //   std::cout << '\n';
   // end DEBUG
-
 
   RCLCPP_DEBUG(this->get_logger(), "Inf: %d/%d", num_inf, to - from - 1);
 
