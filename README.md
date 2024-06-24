@@ -14,6 +14,32 @@ A turtlebot3 patrolling the simulated and real robot pen/polygon. Patrolling mea
       ros2 launch turtlebot3_gazebo main_turtlebot3_lab.launch.xml  
       ros2 launch robot_patrol start_patrolling.launch.py  
       ```
+      1. Controlling the log verbosity level:
+         1. In source code (C++):
+            ```
+            #include <rclcpp/rclcpp.hpp>
+
+            int main(int argc, char ** argv)
+            {
+            rclcpp::init(argc, argv);
+            auto node = std::make_shared<rclcpp::Node>("robot_patrol");
+
+            auto logger = rclcpp::get_logger("robot_patrol_node");
+
+            // Set the log level to DEBUG
+            if (rcutils_logging_set_logger_level(
+                    logger.get_name(), RCUTILS_LOG_SEVERITY_DEBUG) != RCUTILS_RET_OK) {
+                // Handle the error (e.g., print an error message or throw an exception)
+                RCLCPP_ERROR(logger, "Failed to set logger level for robot_patrol_node.");
+            } else {
+                RCLCPP_INFO(logger, "Successfully set logger level for robot_patrol_node.");
+            }
+
+            rclcpp::spin(node);
+            rclcpp::shutdown();
+            return 0;
+            }
+            ```
    2. Screenshots
       | Turtlebot 3 Lab | Live |
       | --- | --- |
