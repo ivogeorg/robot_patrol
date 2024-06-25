@@ -6192,3 +6192,1118 @@ robot_patrol_node-1] [INFO] [1718932915.872514330] [robot_patrol_node]: Laser sc
 [ERROR] [robot_patrol_node-1]: process has died [pid 3328, exit code -11, cmd '/home/user/install/robot_patrol/lib/robot_patrol/robot_patrol_node --ros-args'].
 user:~$ ros2 launch robot_patrol start_patrolling.launch.py
 ```
+
+
+### Lab problems with clear spans
+
+With screenshot of lab: turtlebot-lab-problems-with-clear-spans-1.png
+
+```
+user:~/ros2_ws$ ros2 launch robot_patrol start_patrolling.launch.py
+[INFO] [launch]: All log files can be found below /home/user/.ros/log/2024-06-25-01-48-12-051549-1_xterm-4600
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [robot_patrol_node-1]: process started with pid [4601]
+[robot_patrol_node-1] [INFO] [1719280092.128282528] [robot_patrol_node]: Successfully set logger level for robot_patrol_node.
+[robot_patrol_node-1] 1719280092.128586 [0] robot_patr: config: //CycloneDDS/Domain/General: 'NetworkInterfaceAddress': deprecated element (file:///var/lib/theconstruct.rrl/cyclonedds.xml line 5)
+[robot_patrol_node-1] 1719280092.130206 [0] robot_patr: add_peer_addresses: 1_xterm: unknown address
+[robot_patrol_node-1] 1719280092.130206 [0] robot_patr: add_peer_addresses: 1_xterm: unknown address
+[robot_patrol_node-1] [INFO] [1719280092.236649472] [robot_patrol_node]: No nav data. Velocity callback no-op.
+[robot_patrol_node-1] [INFO] [1719280092.336643783] [robot_patrol_node]: No nav data. Velocity callback no-op.
+[robot_patrol_node-1] [INFO] [1719280092.436644103] [robot_patrol_node]: No nav data. Velocity callback no-op.
+[robot_patrol_node-1] [INFO] [1719280092.536639605] [robot_patrol_node]: No nav data. Velocity callback no-op.
+[robot_patrol_node-1] [DEBUG] [1719280092.548889055] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [INFO] [1719280092.636639427] [robot_patrol_node]: Parametrizing laser scanner. Velocity callback no-op.
+[robot_patrol_node-1] [INFO] [1719280092.636677452] [robot_patrol_node]: RANGES_SIZE = 720
+[robot_patrol_node-1] [INFO] [1719280092.636689806] [robot_patrol_node]: RANGE_MIN = 0.150000
+[robot_patrol_node-1] [INFO] [1719280092.636701735] [robot_patrol_node]: RANGE_MAX = 12.000000
+[robot_patrol_node-1] [INFO] [1719280092.636712395] [robot_patrol_node]: ANGLE_INCREMENT = 0.008715
+[robot_patrol_node-1]
+[robot_patrol_node-1] [INFO] [1719280092.636722832] [robot_patrol_node]: OBSTACLE_BACK_PROXIMITY = 0.225000
+[robot_patrol_node-1]
+[robot_patrol_node-1] [INFO] [1719280092.636732366] [robot_patrol_node]: BACKUP_LIMIT = 0.562500
+[robot_patrol_node-1]
+[robot_patrol_node-1] [INFO] [1719280092.636741575] [robot_patrol_node]: DIRECTION_SPREAD_DEGREES = 30.000000
+[robot_patrol_node-1] [INFO] [1719280092.636751106] [robot_patrol_node]: HALF_SPREAD = 0.261799
+[robot_patrol_node-1] [INFO] [1719280092.636760310] [robot_patrol_node]: SPREAD_INDICES = 30
+[robot_patrol_node-1]
+[robot_patrol_node-1] [INFO] [1719280092.636774626] [robot_patrol_node]: RIGHT = 179
+[robot_patrol_node-1] [INFO] [1719280092.636782972] [robot_patrol_node]: RIGHT_FROM = 149
+[robot_patrol_node-1] [INFO] [1719280092.636791123] [robot_patrol_node]: RIGHT_TO = 209
+[robot_patrol_node-1] [INFO] [1719280092.636799093] [robot_patrol_node]: LEFT = 539
+[robot_patrol_node-1] [INFO] [1719280092.636807840] [robot_patrol_node]: LEFT_FROM = 509
+[robot_patrol_node-1] [INFO] [1719280092.636816252] [robot_patrol_node]: LEFT_TO = 569
+[robot_patrol_node-1] [INFO] [1719280092.636824333] [robot_patrol_node]: FRONT = 359
+[robot_patrol_node-1] [INFO] [1719280092.636832297] [robot_patrol_node]: FRONT_FROM = 329
+[robot_patrol_node-1] [INFO] [1719280092.636840253] [robot_patrol_node]: FRONT_TO = 389
+[robot_patrol_node-1] [INFO] [1719280092.636848247] [robot_patrol_node]: BACK = 0
+[robot_patrol_node-1] [INFO] [1719280092.636859533] [robot_patrol_node]: BACK_FROM = 689
+[robot_patrol_node-1] [INFO] [1719280092.636867648] [robot_patrol_node]: BACK_TO = 30
+[robot_patrol_node-1] [INFO] [1719280092.636875760] [robot_patrol_node]: Laser scan parametrized
+[robot_patrol_node-1]
+[robot_patrol_node-1] [WARN] [1719280092.736657498] [robot_patrol_node]: Warning: (pkg: robot_patrol, src: patrol.cpp) in State::SLOW_DOWN last_state_ switch, came from State::SLOW_DOWN
+[robot_patrol_node-1] [INFO] [1719280092.736693743] [robot_patrol_node]: Looking for direction to go...
+[robot_patrol_node-1]
+[robot_patrol_node-1] [DEBUG] [1719280092.737967204] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 14
+[robot_patrol_node-1] [INFO] [1719280092.836636446] [robot_patrol_node]: Looking for safest direction
+[robot_patrol_node-1] [DEBUG] [1719280092.836696428] [robot_patrol_node]: Num INF before clear spans (find_direction_buffers): 0
+[robot_patrol_node-1] [DEBUG] [1719280092.836709847] [robot_patrol_node]: index_zero: 41
+[robot_patrol_node-1] [DEBUG] [1719280092.836719698] [robot_patrol_node]: first_disc_type: DiscontinuityType::DROP
+[robot_patrol_node-1] [DEBUG] [1719280092.836729187] [robot_patrol_node]: marker: LaserTargetType::OBSTACLE
+[robot_patrol_node-1] [DEBUG] [1719280092.836808089] [robot_patrol_node]: Num clear spans: 0
+[robot_patrol_node-1] 0: 1.676
+[robot_patrol_node-1] 1: 1.684
+[robot_patrol_node-1] 2: 1.688
+[robot_patrol_node-1] 3: 1.7
+[robot_patrol_node-1] 4: 1.714
+[robot_patrol_node-1] 5: 1.718
+[robot_patrol_node-1] 6: 1.726
+[robot_patrol_node-1] 7: 1.73
+[robot_patrol_node-1] 8: 1.742
+[robot_patrol_node-1] 9: 1.752
+[robot_patrol_node-1] 10: 1.758
+[robot_patrol_node-1] 11: 1.768
+[robot_patrol_node-1] 12: 1.774
+[robot_patrol_node-1] 13: 1.782
+[robot_patrol_node-1] 14: 1.794
+[robot_patrol_node-1] 15: 1.806
+[robot_patrol_node-1] 16: 1.822
+[robot_patrol_node-1] 17: 1.828
+[robot_patrol_node-1] 18: 1.838
+[robot_patrol_node-1] 19: 1.852
+[robot_patrol_node-1] 20: 1.866
+[robot_patrol_node-1] 21: 1.878
+[robot_patrol_node-1] 22: 1.884
+[robot_patrol_node-1] 23: 1.894
+[robot_patrol_node-1] 24: 1.912
+[robot_patrol_node-1] 25: 1.918
+[robot_patrol_node-1] 26: 1.936
+[robot_patrol_node-1] 27: 1.946
+[robot_patrol_node-1] 28: 1.966
+[robot_patrol_node-1] 29: 1.938
+[robot_patrol_node-1] 30: 1.938
+[robot_patrol_node-1] 31: 1.924
+[robot_patrol_node-1] 32: 1.918
+[robot_patrol_node-1] 33: 1.894
+[robot_patrol_node-1] 34: 1.87
+[robot_patrol_node-1] 35: 1.864
+[robot_patrol_node-1] 36: 1.854
+[robot_patrol_node-1] 37: 1.85
+[robot_patrol_node-1] 38: 1.832
+[robot_patrol_node-1] 39: 1.826
+[robot_patrol_node-1] 40: 1.828
+[robot_patrol_node-1] 41: 1
+[robot_patrol_node-1] 42: 1
+[robot_patrol_node-1] 43: 1
+[robot_patrol_node-1] 44: 1
+[robot_patrol_node-1] 45: 1
+[robot_patrol_node-1] 46: 1.598
+[robot_patrol_node-1] 47: 1.598
+[robot_patrol_node-1] 48: 1.6
+[robot_patrol_node-1] 49: 1.6
+[robot_patrol_node-1] 50: 1.596
+[robot_patrol_node-1] 51: 1.586
+[robot_patrol_node-1] 52: 1.582
+[robot_patrol_node-1] 53: 1.582
+[robot_patrol_node-1] 54: 1.578
+[robot_patrol_node-1] 55: 1.574
+[robot_patrol_node-1] 56: 1.56
+[robot_patrol_node-1] 57: 1.552
+[robot_patrol_node-1] 58: 1.54
+[robot_patrol_node-1] 59: 1.528
+[robot_patrol_node-1] 60: 1.52
+[robot_patrol_node-1] 61: 1.506
+[robot_patrol_node-1] 62: 1.5
+[robot_patrol_node-1] 63: 1.492
+[robot_patrol_node-1] 64: 1.48
+[robot_patrol_node-1] 65: 1.474
+[robot_patrol_node-1] 66: 1.464
+[robot_patrol_node-1] 67: 1.456
+[robot_patrol_node-1] 68: 1.45
+[robot_patrol_node-1] 69: 1.438
+[robot_patrol_node-1] 70: 1.434
+[robot_patrol_node-1] 71: 1.424
+[robot_patrol_node-1] 72: 1.416
+[robot_patrol_node-1] 73: 1.41
+[robot_patrol_node-1] 74: 1.398
+[robot_patrol_node-1] 75: 1.396
+[robot_patrol_node-1] 76: 1.388
+[robot_patrol_node-1] 77: 1.38
+[robot_patrol_node-1] 78: 1.376
+[robot_patrol_node-1] 79: 1.37
+[robot_patrol_node-1] 80: 1.364
+[robot_patrol_node-1] 81: 1.36
+[robot_patrol_node-1] 82: 1.352
+[robot_patrol_node-1] 83: 1.35
+[robot_patrol_node-1] 84: 1.344
+[robot_patrol_node-1] 85: 1.34
+[robot_patrol_node-1] 86: 1.334
+[robot_patrol_node-1] 87: 1.328
+[robot_patrol_node-1] 88: 1.324
+[robot_patrol_node-1] 89: 1.32
+[robot_patrol_node-1] 90: 1.318
+[robot_patrol_node-1] 91: 1.314
+[robot_patrol_node-1] 92: 1.306
+[robot_patrol_node-1] 93: 1.304
+[robot_patrol_node-1] 94: 1.3
+[robot_patrol_node-1] 95: 1.298
+[robot_patrol_node-1] 96: 1.294
+[robot_patrol_node-1] 97: 1.292
+[robot_patrol_node-1] 98: 1.29
+[robot_patrol_node-1] 99: 1.286
+[robot_patrol_node-1] 100: 1.284
+[robot_patrol_node-1] 101: 1.276
+[robot_patrol_node-1] 102: 1.268
+[robot_patrol_node-1] 103: 1.262
+[robot_patrol_node-1] 104: 1.252
+[robot_patrol_node-1] 105: 1.266
+[robot_patrol_node-1] 106: 1
+[robot_patrol_node-1] 107: 1
+[robot_patrol_node-1] 108: 1
+[robot_patrol_node-1] 109: 1
+[robot_patrol_node-1] 110: 1
+[robot_patrol_node-1] 111: 1
+[robot_patrol_node-1] 112: 1
+[robot_patrol_node-1] 113: 1
+[robot_patrol_node-1] 114: 1
+[robot_patrol_node-1] 115: 1.276
+[robot_patrol_node-1] 116: 1.276
+[robot_patrol_node-1] 117: 1.268
+[robot_patrol_node-1] 118: 1.268
+[robot_patrol_node-1] 119: 1.26
+[robot_patrol_node-1] 120: 1.254
+[robot_patrol_node-1] 121: 1.248
+[robot_patrol_node-1] 122: 1.248
+[robot_patrol_node-1] 123: 1.246
+[robot_patrol_node-1] 124: 1.246
+[robot_patrol_node-1] 125: 1.248
+[robot_patrol_node-1] 126: 1.246
+[robot_patrol_node-1] 127: 1.248
+[robot_patrol_node-1] 128: 1.248
+[robot_patrol_node-1] 129: 1.246
+[robot_patrol_node-1] 130: 1.246
+[robot_patrol_node-1] 131: 1.246
+[robot_patrol_node-1] 132: 1.246
+[robot_patrol_node-1] 133: 1.246
+[robot_patrol_node-1] 134: 1.248
+[robot_patrol_node-1] 135: 1.248
+[robot_patrol_node-1] 136: 1.248
+[robot_patrol_node-1] 137: 1.25
+[robot_patrol_node-1] 138: 1.248
+[robot_patrol_node-1] 139: 1.252
+[robot_patrol_node-1] 140: 1.252
+[robot_patrol_node-1] 141: 1.254
+[robot_patrol_node-1] 142: 1.254
+[robot_patrol_node-1] 143: 1.254
+[robot_patrol_node-1] 144: 1.256
+[robot_patrol_node-1] 145: 1.258
+[robot_patrol_node-1] 146: 1.258
+[robot_patrol_node-1] 147: 1.26
+[robot_patrol_node-1] 148: 1.262
+[robot_patrol_node-1] 149: 1.262
+[robot_patrol_node-1] 150: 1.262
+[robot_patrol_node-1] 151: 1.274
+[robot_patrol_node-1] 152: 1.274
+[robot_patrol_node-1] 153: 1.274
+[robot_patrol_node-1] 154: 1.276
+[robot_patrol_node-1] 155: 1.278
+[robot_patrol_node-1] 156: 1.278
+[robot_patrol_node-1] 157: 1.282
+[robot_patrol_node-1] 158: 1.284
+[robot_patrol_node-1] 159: 1.286
+[robot_patrol_node-1] 160: 1.29
+[robot_patrol_node-1] 161: 1.292
+[robot_patrol_node-1] 162: 1.296
+[robot_patrol_node-1] 163: 1.298
+[robot_patrol_node-1] 164: 1.304
+[robot_patrol_node-1] 165: 1.308
+[robot_patrol_node-1] 166: 1.308
+[robot_patrol_node-1] 167: 1.312
+[robot_patrol_node-1] 168: 1.314
+[robot_patrol_node-1] 169: 1.32
+[robot_patrol_node-1] 170: 1.324
+[robot_patrol_node-1] 171: 1.328
+[robot_patrol_node-1] 172: 1.332
+[robot_patrol_node-1] 173: 1.334
+[robot_patrol_node-1] 174: 1.34
+[robot_patrol_node-1] 175: 1.344
+[robot_patrol_node-1] 176: 1.348
+[robot_patrol_node-1] 177: 1.354
+[robot_patrol_node-1] 178: 1.356
+[robot_patrol_node-1] 179: 1.338
+[robot_patrol_node-1] 180: 1.338
+[robot_patrol_node-1] 181: 1.324
+[robot_patrol_node-1] 182: 1.292
+[robot_patrol_node-1] 183: 1.264
+[robot_patrol_node-1] 184: 1.25
+[robot_patrol_node-1] 185: 1.224
+[robot_patrol_node-1] 186: 1.212
+[robot_patrol_node-1] 187: 1.186
+[robot_patrol_node-1] 188: 1.166
+[robot_patrol_node-1] 189: 1.152
+[robot_patrol_node-1] 190: 1.132
+[robot_patrol_node-1] 191: 1.122
+[robot_patrol_node-1] 192: 1.1
+[robot_patrol_node-1] 193: 1.082
+[robot_patrol_node-1] 194: 1.07
+[robot_patrol_node-1] 195: 1.052
+[robot_patrol_node-1] 196: 1.044
+[robot_patrol_node-1] 197: 1.028
+[robot_patrol_node-1] 198: 1.01
+[robot_patrol_node-1] 199: 1.002
+[robot_patrol_node-1] 200: 0.988
+[robot_patrol_node-1] 201: 0.978
+[robot_patrol_node-1] 202: 0.964
+[robot_patrol_node-1] 203: 0.95
+[robot_patrol_node-1] 204: 0.944
+[robot_patrol_node-1] 205: 0.93
+[robot_patrol_node-1] 206: 0.924
+[robot_patrol_node-1] 207: 0.912
+[robot_patrol_node-1] 208: 0.898
+[robot_patrol_node-1] 209: 0.78
+[robot_patrol_node-1] 210: 0.78
+[robot_patrol_node-1] 211: 0.78
+[robot_patrol_node-1] 212: 0.852
+[robot_patrol_node-1] 213: 0.848
+[robot_patrol_node-1] 214: 0.848
+[robot_patrol_node-1] 215: 0.836
+[robot_patrol_node-1] 216: 0.832
+[robot_patrol_node-1] 217: 0.822
+[robot_patrol_node-1] 218: 0.812
+[robot_patrol_node-1] 219: 0.81
+[robot_patrol_node-1] 220: 0.8
+[robot_patrol_node-1] 221: 0.794
+[robot_patrol_node-1] 222: 0.786
+[robot_patrol_node-1] 223: 0.778
+[robot_patrol_node-1] 224: 0.774
+[robot_patrol_node-1] 225: 0.766
+[robot_patrol_node-1] 226: 0.76
+[robot_patrol_node-1] 227: 0.76
+[robot_patrol_node-1] 228: 0.672
+[robot_patrol_node-1] 229: 0.672
+[robot_patrol_node-1] 230: 0.68
+[robot_patrol_node-1] 231: 0.728
+[robot_patrol_node-1] 232: 0.726
+[robot_patrol_node-1] 233: 0.72
+[robot_patrol_node-1] 234: 0.716
+[robot_patrol_node-1] 235: 0.71
+[robot_patrol_node-1] 236: 0.704
+[robot_patrol_node-1] 237: 0.702
+[robot_patrol_node-1] 238: 0.696
+[robot_patrol_node-1] 239: 0.692
+[robot_patrol_node-1] 240: 0.688
+[robot_patrol_node-1] 241: 0.682
+[robot_patrol_node-1] 242: 0.678
+[robot_patrol_node-1] 243: 0.674
+[robot_patrol_node-1] 244: 0.672
+[robot_patrol_node-1] 245: 0.666
+[robot_patrol_node-1] 246: 0.662
+[robot_patrol_node-1] 247: 0.66
+[robot_patrol_node-1] 248: 0.654
+[robot_patrol_node-1] 249: 0.652
+[robot_patrol_node-1] 250: 0.648
+[robot_patrol_node-1] 251: 0.644
+[robot_patrol_node-1] 252: 0.642
+[robot_patrol_node-1] 253: 0.638
+[robot_patrol_node-1] 254: 0.636
+[robot_patrol_node-1] 255: 0.632
+[robot_patrol_node-1] 256: 0.628
+[robot_patrol_node-1] 257: 0.628
+[robot_patrol_node-1] 258: 0.624
+[robot_patrol_node-1] 259: 0.622
+[robot_patrol_node-1] 260: 0.618
+[robot_patrol_node-1] 261: 0.616
+[robot_patrol_node-1] 262: 0.614
+[robot_patrol_node-1] 263: 0.61
+[robot_patrol_node-1] 264: 0.61
+[robot_patrol_node-1] 265: 0.606
+[robot_patrol_node-1] 266: 0.604
+[robot_patrol_node-1] 267: 0.602
+[robot_patrol_node-1] 268: 0.598
+[robot_patrol_node-1] 269: 0.598
+[robot_patrol_node-1] 270: 0.594
+[robot_patrol_node-1] 271: 0.592
+[robot_patrol_node-1] 272: 0.592
+[robot_patrol_node-1] 273: 0.59
+[robot_patrol_node-1] 274: 0.588
+[robot_patrol_node-1] 275: 0.586
+[robot_patrol_node-1] 276: 0.584
+[robot_patrol_node-1] 277: 0.582
+[robot_patrol_node-1] 278: 0.58
+[robot_patrol_node-1] 279: 0.58
+[robot_patrol_node-1] 280: 0.578
+[robot_patrol_node-1] 281: 0.576
+[robot_patrol_node-1] 282: 0.574
+[robot_patrol_node-1] 283: 0.574
+[robot_patrol_node-1] 284: 0.572
+[robot_patrol_node-1] 285: 0.57
+[robot_patrol_node-1] 286: 0.57
+[robot_patrol_node-1] 287: 0.568
+[robot_patrol_node-1] 288: 0.566
+[robot_patrol_node-1] 289: 0.566
+[robot_patrol_node-1] 290: 0.566
+[robot_patrol_node-1] 291: 0.564
+[robot_patrol_node-1] 292: 0.564
+[robot_patrol_node-1] 293: 0.562
+[robot_patrol_node-1] 294: 0.562
+[robot_patrol_node-1] 295: 0.56
+[robot_patrol_node-1] 296: 0.56
+[robot_patrol_node-1] 297: 0.558
+[robot_patrol_node-1] 298: 0.558
+[robot_patrol_node-1] 299: 0.558
+[robot_patrol_node-1] 300: 0.558
+[robot_patrol_node-1] 301: 0.556
+[robot_patrol_node-1] 302: 0.556
+[robot_patrol_node-1] 303: 0.556
+[robot_patrol_node-1] 304: 0.554
+[robot_patrol_node-1] 305: 0.554
+[robot_patrol_node-1] 306: 0.554
+[robot_patrol_node-1] 307: 0.554
+[robot_patrol_node-1] 308: 0.554
+[robot_patrol_node-1] 309: 0.554
+[robot_patrol_node-1] 310: 0.554
+[robot_patrol_node-1] 311: 0.554
+[robot_patrol_node-1] 312: 0.554
+[robot_patrol_node-1] 313: 0.554
+[robot_patrol_node-1] 314: 0.554
+[robot_patrol_node-1] 315: 0.554
+[robot_patrol_node-1] 316: 0.554
+[robot_patrol_node-1] 317: 0.554
+[robot_patrol_node-1] 318: 0.554
+[robot_patrol_node-1] 319: 0.554
+[robot_patrol_node-1] 320: 0.554
+[robot_patrol_node-1] 321: 0.554
+[robot_patrol_node-1] 322: 0.554
+[robot_patrol_node-1] 323: 0.556
+[robot_patrol_node-1] 324: 0.556
+[robot_patrol_node-1] 325: 0.556
+[robot_patrol_node-1] 326: 0.556
+[robot_patrol_node-1] 327: 0.558
+[robot_patrol_node-1] 328: 0.558
+[robot_patrol_node-1] 329: 0.558
+[robot_patrol_node-1] 330: 0.56
+[robot_patrol_node-1] 331: 0.56
+[robot_patrol_node-1] 332: 0.56
+[robot_patrol_node-1] 333: 0.562
+[robot_patrol_node-1] 334: 0.562
+[robot_patrol_node-1] 335: 0.564
+[robot_patrol_node-1] 336: 0.564
+[robot_patrol_node-1] 337: 0.566
+[robot_patrol_node-1] 338: 0.566
+[robot_patrol_node-1] 339: 0.568
+[robot_patrol_node-1] 340: 0.568
+[robot_patrol_node-1] 341: 0.57
+[robot_patrol_node-1] 342: 0.572
+[robot_patrol_node-1] 343: 0.572
+[robot_patrol_node-1] 344: 0.574
+[robot_patrol_node-1] 345: 0.576
+[robot_patrol_node-1] 346: 0.578
+[robot_patrol_node-1] 347: 0.58
+[robot_patrol_node-1] 348: 0.58
+[robot_patrol_node-1] 349: 0.582
+[robot_patrol_node-1] 350: 0.584
+[robot_patrol_node-1] 351: 0.586
+[robot_patrol_node-1] 352: 0.588
+[robot_patrol_node-1] 353: 0.59
+[robot_patrol_node-1] 354: 0.592
+[robot_patrol_node-1] 355: 0.592
+[robot_patrol_node-1] 356: 0.596
+[robot_patrol_node-1] 357: 0.598
+[robot_patrol_node-1] 358: 0.6
+[robot_patrol_node-1] 359: 0.602
+[robot_patrol_node-1] 360: 0.604
+[robot_patrol_node-1] 361: 0.606
+[robot_patrol_node-1] 362: 0.61
+[robot_patrol_node-1] 363: 0.612
+[robot_patrol_node-1] 364: 0.616
+[robot_patrol_node-1] 365: 0.616
+[robot_patrol_node-1] 366: 0.62
+[robot_patrol_node-1] 367: 0.624
+[robot_patrol_node-1] 368: 0.626
+[robot_patrol_node-1] 369: 0.63
+[robot_patrol_node-1] 370: 0.63
+[robot_patrol_node-1] 371: 0.636
+[robot_patrol_node-1] 372: 0.64
+[robot_patrol_node-1] 373: 0.64
+[robot_patrol_node-1] 374: 0.646
+[robot_patrol_node-1] 375: 0.646
+[robot_patrol_node-1] 376: 0.652
+[robot_patrol_node-1] 377: 0.656
+[robot_patrol_node-1] 378: 0.66
+[robot_patrol_node-1] 379: 0.664
+[robot_patrol_node-1] 380: 0.666
+[robot_patrol_node-1] 381: 0.672
+[robot_patrol_node-1] 382: 0.676
+[robot_patrol_node-1] 383: 0.68
+[robot_patrol_node-1] 384: 0.684
+[robot_patrol_node-1] 385: 0.692
+[robot_patrol_node-1] 386: 0.694
+[robot_patrol_node-1] 387: 0.7
+[robot_patrol_node-1] 388: 0.704
+[robot_patrol_node-1] 389: 0.708
+[robot_patrol_node-1] 390: 0.716
+[robot_patrol_node-1] 391: 0.72
+[robot_patrol_node-1] 392: 0.726
+[robot_patrol_node-1] 393: 0.73
+[robot_patrol_node-1] 394: 0.736
+[robot_patrol_node-1] 395: 0.744
+[robot_patrol_node-1] 396: 0.748
+[robot_patrol_node-1] 397: 0.758
+[robot_patrol_node-1] 398: 0.76
+[robot_patrol_node-1] 399: 0.76
+[robot_patrol_node-1] 400: 0.758
+[robot_patrol_node-1] 401: 0.758
+[robot_patrol_node-1] 402: 0.75
+[robot_patrol_node-1] 403: 0.746
+[robot_patrol_node-1] 404: 0.738
+[robot_patrol_node-1] 405: 0.73
+[robot_patrol_node-1] 406: 0.726
+[robot_patrol_node-1] 407: 0.718
+[robot_patrol_node-1] 408: 0.716
+[robot_patrol_node-1] 409: 0.708
+[robot_patrol_node-1] 410: 0.702
+[robot_patrol_node-1] 411: 0.698
+[robot_patrol_node-1] 412: 0.692
+[robot_patrol_node-1] 413: 0.688
+[robot_patrol_node-1] 414: 0.682
+[robot_patrol_node-1] 415: 0.676
+[robot_patrol_node-1] 416: 0.672
+[robot_patrol_node-1] 417: 0.668
+[robot_patrol_node-1] 418: 0.664
+[robot_patrol_node-1] 419: 0.658
+[robot_patrol_node-1] 420: 0.654
+[robot_patrol_node-1] 421: 0.652
+[robot_patrol_node-1] 422: 0.646
+[robot_patrol_node-1] 423: 0.642
+[robot_patrol_node-1] 424: 0.638
+[robot_patrol_node-1] 425: 0.632
+[robot_patrol_node-1] 426: 0.63
+[robot_patrol_node-1] 427: 0.626
+[robot_patrol_node-1] 428: 0.624
+[robot_patrol_node-1] 429: 0.62
+[robot_patrol_node-1] 430: 0.616
+[robot_patrol_node-1] 431: 0.614
+[robot_patrol_node-1] 432: 0.61
+[robot_patrol_node-1] 433: 0.608
+[robot_patrol_node-1] 434: 0.604
+[robot_patrol_node-1] 435: 0.6
+[robot_patrol_node-1] 436: 0.598
+[robot_patrol_node-1] 437: 0.596
+[robot_patrol_node-1] 438: 0.594
+[robot_patrol_node-1] 439: 0.59
+[robot_patrol_node-1] 440: 0.586
+[robot_patrol_node-1] 441: 0.586
+[robot_patrol_node-1] 442: 0.582
+[robot_patrol_node-1] 443: 0.58
+[robot_patrol_node-1] 444: 0.578
+[robot_patrol_node-1] 445: 0.574
+[robot_patrol_node-1] 446: 0.572
+[robot_patrol_node-1] 447: 0.57
+[robot_patrol_node-1] 448: 0.57
+[robot_patrol_node-1] 449: 0.566
+[robot_patrol_node-1] 450: 0.564
+[robot_patrol_node-1] 451: 0.562
+[robot_patrol_node-1] 452: 0.56
+[robot_patrol_node-1] 453: 0.558
+[robot_patrol_node-1] 454: 0.556
+[robot_patrol_node-1] 455: 0.554
+[robot_patrol_node-1] 456: 0.554
+[robot_patrol_node-1] 457: 0.552
+[robot_patrol_node-1] 458: 0.55
+[robot_patrol_node-1] 459: 0.548
+[robot_patrol_node-1] 460: 0.546
+[robot_patrol_node-1] 461: 0.546
+[robot_patrol_node-1] 462: 0.544
+[robot_patrol_node-1] 463: 0.542
+[robot_patrol_node-1] 464: 0.538
+[robot_patrol_node-1] 465: 0.534
+[robot_patrol_node-1] 466: 0.534
+[robot_patrol_node-1] 467: 0.532
+[robot_patrol_node-1] 468: 0.532
+[robot_patrol_node-1] 469: 0.532
+[robot_patrol_node-1] 470: 0.53
+[robot_patrol_node-1] 471: 0.53
+[robot_patrol_node-1] 472: 0.53
+[robot_patrol_node-1] 473: 0.528
+[robot_patrol_node-1] 474: 0.528
+[robot_patrol_node-1] 475: 0.528
+[robot_patrol_node-1] 476: 0.526
+[robot_patrol_node-1] 477: 0.526
+[robot_patrol_node-1] 478: 0.526
+[robot_patrol_node-1] 479: 0.526
+[robot_patrol_node-1] 480: 0.524
+[robot_patrol_node-1] 481: 0.524
+[robot_patrol_node-1] 482: 0.524
+[robot_patrol_node-1] 483: 0.524
+[robot_patrol_node-1] 484: 0.522
+[robot_patrol_node-1] 485: 0.522
+[robot_patrol_node-1] 486: 0.522
+[robot_patrol_node-1] 487: 0.522
+[robot_patrol_node-1] 488: 0.522
+[robot_patrol_node-1] 489: 0.522
+[robot_patrol_node-1] 490: 0.522
+[robot_patrol_node-1] 491: 0.522
+[robot_patrol_node-1] 492: 0.52
+[robot_patrol_node-1] 493: 0.522
+[robot_patrol_node-1] 494: 0.52
+[robot_patrol_node-1] 495: 0.522
+[robot_patrol_node-1] 496: 0.522
+[robot_patrol_node-1] 497: 0.522
+[robot_patrol_node-1] 498: 0.522
+[robot_patrol_node-1] 499: 0.522
+[robot_patrol_node-1] 500: 0.522
+[robot_patrol_node-1] 501: 0.522
+[robot_patrol_node-1] 502: 0.522
+[robot_patrol_node-1] 503: 0.524
+[robot_patrol_node-1] 504: 0.524
+[robot_patrol_node-1] 505: 0.524
+[robot_patrol_node-1] 506: 0.524
+[robot_patrol_node-1] 507: 0.526
+[robot_patrol_node-1] 508: 0.526
+[robot_patrol_node-1] 509: 0.526
+[robot_patrol_node-1] 510: 0.526
+[robot_patrol_node-1] 511: 0.528
+[robot_patrol_node-1] 512: 0.528
+[robot_patrol_node-1] 513: 0.528
+[robot_patrol_node-1] 514: 0.528
+[robot_patrol_node-1] 515: 0.53
+[robot_patrol_node-1] 516: 0.53
+[robot_patrol_node-1] 517: 0.532
+[robot_patrol_node-1] 518: 0.532
+[robot_patrol_node-1] 519: 0.532
+[robot_patrol_node-1] 520: 0.534
+[robot_patrol_node-1] 521: 0.536
+[robot_patrol_node-1] 522: 0.536
+[robot_patrol_node-1] 523: 0.538
+[robot_patrol_node-1] 524: 0.54
+[robot_patrol_node-1] 525: 0.54
+[robot_patrol_node-1] 526: 0.542
+[robot_patrol_node-1] 527: 0.544
+[robot_patrol_node-1] 528: 0.546
+[robot_patrol_node-1] 529: 0.546
+[robot_patrol_node-1] 530: 0.548
+[robot_patrol_node-1] 531: 0.55
+[robot_patrol_node-1] 532: 0.552
+[robot_patrol_node-1] 533: 0.554
+[robot_patrol_node-1] 534: 0.554
+[robot_patrol_node-1] 535: 0.558
+[robot_patrol_node-1] 536: 0.56
+[robot_patrol_node-1] 537: 0.56
+[robot_patrol_node-1] 538: 0.562
+[robot_patrol_node-1] 539: 0.564
+[robot_patrol_node-1] 540: 0.566
+[robot_patrol_node-1] 541: 0.57
+[robot_patrol_node-1] 542: 0.57
+[robot_patrol_node-1] 543: 0.574
+[robot_patrol_node-1] 544: 0.576
+[robot_patrol_node-1] 545: 0.578
+[robot_patrol_node-1] 546: 0.58
+[robot_patrol_node-1] 547: 0.582
+[robot_patrol_node-1] 548: 0.586
+[robot_patrol_node-1] 549: 0.588
+[robot_patrol_node-1] 550: 0.59
+[robot_patrol_node-1] 551: 0.594
+[robot_patrol_node-1] 552: 0.596
+[robot_patrol_node-1] 553: 0.6
+[robot_patrol_node-1] 554: 0.6
+[robot_patrol_node-1] 555: 0.604
+[robot_patrol_node-1] 556: 0.608
+[robot_patrol_node-1] 557: 0.608
+[robot_patrol_node-1] 558: 0.612
+[robot_patrol_node-1] 559: 0.612
+[robot_patrol_node-1] 560: 0.554
+[robot_patrol_node-1] 561: 0.554
+[robot_patrol_node-1] 562: 0.554
+[robot_patrol_node-1] 563: 0.634
+[robot_patrol_node-1] 564: 0.634
+[robot_patrol_node-1] 565: 0.636
+[robot_patrol_node-1] 566: 0.64
+[robot_patrol_node-1] 567: 0.642
+[robot_patrol_node-1] 568: 0.646
+[robot_patrol_node-1] 569: 0.648
+[robot_patrol_node-1] 570: 0.654
+[robot_patrol_node-1] 571: 0.658
+[robot_patrol_node-1] 572: 0.662
+[robot_patrol_node-1] 573: 0.666
+[robot_patrol_node-1] 574: 0.67
+[robot_patrol_node-1] 575: 0.674
+[robot_patrol_node-1] 576: 0.68
+[robot_patrol_node-1] 577: 0.684
+[robot_patrol_node-1] 578: 0.688
+[robot_patrol_node-1] 579: 0.692
+[robot_patrol_node-1] 580: 0.698
+[robot_patrol_node-1] 581: 0.704
+[robot_patrol_node-1] 582: 0.708
+[robot_patrol_node-1] 583: 0.714
+[robot_patrol_node-1] 584: 0.718
+[robot_patrol_node-1] 585: 0.726
+[robot_patrol_node-1] 586: 0.734
+[robot_patrol_node-1] 587: 0.738
+[robot_patrol_node-1] 588: 0.746
+[robot_patrol_node-1] 589: 0.75
+[robot_patrol_node-1] 590: 0.758
+[robot_patrol_node-1] 591: 0.768
+[robot_patrol_node-1] 592: 0.772
+[robot_patrol_node-1] 593: 0.782
+[robot_patrol_node-1] 594: 0.788
+[robot_patrol_node-1] 595: 0.796
+[robot_patrol_node-1] 596: 0.81
+[robot_patrol_node-1] 597: 0.814
+[robot_patrol_node-1] 598: 0.826
+[robot_patrol_node-1] 599: 0.832
+[robot_patrol_node-1] 600: 0.844
+[robot_patrol_node-1] 601: 0.858
+[robot_patrol_node-1] 602: 0.864
+[robot_patrol_node-1] 603: 0.882
+[robot_patrol_node-1] 604: 0.888
+[robot_patrol_node-1] 605: 0.904
+[robot_patrol_node-1] 606: 0.92
+[robot_patrol_node-1] 607: 0.93
+[robot_patrol_node-1] 608: 0.952
+[robot_patrol_node-1] 609: 0.96
+[robot_patrol_node-1] 610: 0.982
+[robot_patrol_node-1] 611: 1.004
+[robot_patrol_node-1] 612: 1.014
+[robot_patrol_node-1] 613: 1.042
+[robot_patrol_node-1] 614: 1.052
+[robot_patrol_node-1] 615: 1.082
+[robot_patrol_node-1] 616: 1.108
+[robot_patrol_node-1] 617: 1.124
+[robot_patrol_node-1] 618: 1.154
+[robot_patrol_node-1] 619: 1.17
+[robot_patrol_node-1] 620: 1.202
+[robot_patrol_node-1] 621: 1.236
+[robot_patrol_node-1] 622: 1.254
+[robot_patrol_node-1] 623: 1.286
+[robot_patrol_node-1] 624: 1.302
+[robot_patrol_node-1] 625: 1.34
+[robot_patrol_node-1] 626: 1.36
+[robot_patrol_node-1] 627: 1.396
+[robot_patrol_node-1] 628: 1.44
+[robot_patrol_node-1] 629: 1.46
+[robot_patrol_node-1] 630: 1.512
+[robot_patrol_node-1] 631: 1.534
+[robot_patrol_node-1] 632: 1.59
+[robot_patrol_node-1] 633: 1.606
+[robot_patrol_node-1] 634: 1.604
+[robot_patrol_node-1] 635: 1.602
+[robot_patrol_node-1] 636: 1.6
+[robot_patrol_node-1] 637: 1.594
+[robot_patrol_node-1] 638: 1.59
+[robot_patrol_node-1] 639: 1.586
+[robot_patrol_node-1] 640: 1.582
+[robot_patrol_node-1] 641: 1.58
+[robot_patrol_node-1] 642: 1.576
+[robot_patrol_node-1] 643: 1.57
+[robot_patrol_node-1] 644: 1.568
+[robot_patrol_node-1] 645: 1.564
+[robot_patrol_node-1] 646: 1.562
+[robot_patrol_node-1] 647: 1.56
+[robot_patrol_node-1] 648: 1.556
+[robot_patrol_node-1] 649: 1.556
+[robot_patrol_node-1] 650: 1.544
+[robot_patrol_node-1] 651: 1.544
+[robot_patrol_node-1] 652: 1.542
+[robot_patrol_node-1] 653: 1.54
+[robot_patrol_node-1] 654: 1.54
+[robot_patrol_node-1] 655: 1.538
+[robot_patrol_node-1] 656: 1.536
+[robot_patrol_node-1] 657: 1.536
+[robot_patrol_node-1] 658: 1.534
+[robot_patrol_node-1] 659: 1.532
+[robot_patrol_node-1] 660: 1.53
+[robot_patrol_node-1] 661: 1.528
+[robot_patrol_node-1] 662: 1.526
+[robot_patrol_node-1] 663: 1.524
+[robot_patrol_node-1] 664: 1.524
+[robot_patrol_node-1] 665: 1.522
+[robot_patrol_node-1] 666: 1.52
+[robot_patrol_node-1] 667: 1.52
+[robot_patrol_node-1] 668: 1.52
+[robot_patrol_node-1] 669: 1.518
+[robot_patrol_node-1] 670: 1.516
+[robot_patrol_node-1] 671: 1.516
+[robot_patrol_node-1] 672: 1.516
+[robot_patrol_node-1] 673: 1.512
+[robot_patrol_node-1] 674: 1.512
+[robot_patrol_node-1] 675: 1.514
+[robot_patrol_node-1] 676: 1.514
+[robot_patrol_node-1] 677: 1.51
+[robot_patrol_node-1] 678: 1.514
+[robot_patrol_node-1] 679: 1.518
+[robot_patrol_node-1] 680: 1.518
+[robot_patrol_node-1] 681: 1.52
+[robot_patrol_node-1] 682: 1.522
+[robot_patrol_node-1] 683: 1.522
+[robot_patrol_node-1] 684: 1.524
+[robot_patrol_node-1] 685: 1.528
+[robot_patrol_node-1] 686: 1.528
+[robot_patrol_node-1] 687: 1.53
+[robot_patrol_node-1] 688: 1.534
+[robot_patrol_node-1] 689: 1.536
+[robot_patrol_node-1] 690: 1.538
+[robot_patrol_node-1] 691: 1.54
+[robot_patrol_node-1] 692: 0.902
+[robot_patrol_node-1] 693: 0.902
+[robot_patrol_node-1] 694: 0.894
+[robot_patrol_node-1] 695: 0.894
+[robot_patrol_node-1] 696: 0.89
+[robot_patrol_node-1] 697: 0.888
+[robot_patrol_node-1] 698: 0.886
+[robot_patrol_node-1] 699: 0.878
+[robot_patrol_node-1] 700: 1.018
+[robot_patrol_node-1] 701: 1.006
+[robot_patrol_node-1] 702: 1.006
+[robot_patrol_node-1] 703: 1.596
+[robot_patrol_node-1] 704: 1.596
+[robot_patrol_node-1] 705: 1.6
+[robot_patrol_node-1] 706: 1.602
+[robot_patrol_node-1] 707: 1.604
+[robot_patrol_node-1] 708: 1.612
+[robot_patrol_node-1] 709: 1.614
+[robot_patrol_node-1] 710: 1.616
+[robot_patrol_node-1] 711: 1.622
+[robot_patrol_node-1] 712: 1.624
+[robot_patrol_node-1] 713: 1.636
+[robot_patrol_node-1] 714: 1.642
+[robot_patrol_node-1] 715: 1.646
+[robot_patrol_node-1] 716: 1.652
+[robot_patrol_node-1] 717: 1.656
+[robot_patrol_node-1] 718: 1.664
+[robot_patrol_node-1] 719: 1.668
+[robot_patrol_node-1]
+[ERROR] [robot_patrol_node-1]: process has died [pid 4601, exit code -11, cmd '/home/user/ros2_ws/install/robot_patrol/lib/robot_patrol/robot_patrol_node --ros-args'].
+user:~/ros2_ws$
+```
+
+### Another problem with clear spans
+
+With screenshot of lab: turtlebot-lab-problems-with-clear-spans-2.png
+
+```
+user:~/ros2_ws$ ros2 launch robot_patrol start_patrolling.launch.py
+[INFO] [launch]: All log files can be found below /home/user/.ros/log/2024-06-25-01-51-11-481520-1_xterm-5204
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [robot_patrol_node-1]: process started with pid [5205]
+[robot_patrol_node-1] [INFO] [1719280271.556595759] [robot_patrol_node]: Successfully set logger level for robot_patrol_node.
+[robot_patrol_node-1] 1719280271.556867 [0] robot_patr: config: //CycloneDDS/Domain/General: 'NetworkInterfaceAddress': deprecated element (file:///var/lib/theconstruct.rrl/cyclonedds.xml line 5)
+[robot_patrol_node-1] 1719280271.558475 [0] robot_patr: add_peer_addresses: 1_xterm: unknown address
+[robot_patrol_node-1] 1719280271.558475 [0] robot_patr: add_peer_addresses: 1_xterm: unknown address
+[robot_patrol_node-1] [INFO] [1719280271.668006425] [robot_patrol_node]: No nav data. Velocity callback no-op.
+[robot_patrol_node-1] [INFO] [1719280271.768009343] [robot_patrol_node]: No nav data. Velocity callback no-op.
+[robot_patrol_node-1] [INFO] [1719280271.868008602] [robot_patrol_node]: No nav data. Velocity callback no-op.
+[robot_patrol_node-1] [DEBUG] [1719280271.929389605] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 15
+[robot_patrol_node-1] [INFO] [1719280271.967989423] [robot_patrol_node]: Parametrizing laser scanner. Velocity callback no-op.
+[robot_patrol_node-1] [INFO] [1719280271.968025880] [robot_patrol_node]: RANGES_SIZE = 720
+[robot_patrol_node-1] [INFO] [1719280271.968036765] [robot_patrol_node]: RANGE_MIN = 0.150000
+[robot_patrol_node-1] [INFO] [1719280271.968048308] [robot_patrol_node]: RANGE_MAX = 12.000000
+[robot_patrol_node-1] [INFO] [1719280271.968058230] [robot_patrol_node]: ANGLE_INCREMENT = 0.008715
+[robot_patrol_node-1]
+[robot_patrol_node-1] [INFO] [1719280271.968067857] [robot_patrol_node]: OBSTACLE_BACK_PROXIMITY = 0.225000
+[robot_patrol_node-1]
+[robot_patrol_node-1] [INFO] [1719280271.968076833] [robot_patrol_node]: BACKUP_LIMIT = 0.562500
+[robot_patrol_node-1]
+[robot_patrol_node-1] [INFO] [1719280271.968085982] [robot_patrol_node]: DIRECTION_SPREAD_DEGREES = 30.000000
+[robot_patrol_node-1] [INFO] [1719280271.968095183] [robot_patrol_node]: HALF_SPREAD = 0.261799
+[robot_patrol_node-1] [INFO] [1719280271.968104028] [robot_patrol_node]: SPREAD_INDICES = 30
+[robot_patrol_node-1]
+[robot_patrol_node-1] [INFO] [1719280271.968112446] [robot_patrol_node]: RIGHT = 179
+[robot_patrol_node-1] [INFO] [1719280271.968120493] [robot_patrol_node]: RIGHT_FROM = 149
+[robot_patrol_node-1] [INFO] [1719280271.968128478] [robot_patrol_node]: RIGHT_TO = 209
+[robot_patrol_node-1] [INFO] [1719280271.968136337] [robot_patrol_node]: LEFT = 539
+[robot_patrol_node-1] [INFO] [1719280271.968144461] [robot_patrol_node]: LEFT_FROM = 509
+[robot_patrol_node-1] [INFO] [1719280271.968152575] [robot_patrol_node]: LEFT_TO = 569
+[robot_patrol_node-1] [INFO] [1719280271.968164983] [robot_patrol_node]: FRONT = 359
+[robot_patrol_node-1] [INFO] [1719280271.968172993] [robot_patrol_node]: FRONT_FROM = 329
+[robot_patrol_node-1] [INFO] [1719280271.968180917] [robot_patrol_node]: FRONT_TO = 389
+[robot_patrol_node-1] [INFO] [1719280271.968188739] [robot_patrol_node]: BACK = 0
+[robot_patrol_node-1] [INFO] [1719280271.968196771] [robot_patrol_node]: BACK_FROM = 689
+[robot_patrol_node-1] [INFO] [1719280271.968204521] [robot_patrol_node]: BACK_TO = 30
+[robot_patrol_node-1] [INFO] [1719280271.968212384] [robot_patrol_node]: Laser scan parametrized
+[robot_patrol_node-1]
+[robot_patrol_node-1] [WARN] [1719280272.068013641] [robot_patrol_node]: Warning: (pkg: robot_patrol, src: patrol.cpp) in State::SLOW_DOWN last_state_ switch, came from State::SLOW_DOWN
+[robot_patrol_node-1] [INFO] [1719280272.068050772] [robot_patrol_node]: Looking for direction to go...
+[robot_patrol_node-1]
+[robot_patrol_node-1] [DEBUG] [1719280272.089808950] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 16
+[robot_patrol_node-1] [INFO] [1719280272.167993578] [robot_patrol_node]: Looking for safest direction
+[robot_patrol_node-1] [DEBUG] [1719280272.168049877] [robot_patrol_node]: Num INF before clear spans (find_direction_buffers): 0
+[robot_patrol_node-1] [DEBUG] [1719280272.168061709] [robot_patrol_node]: index_zero: 41
+[robot_patrol_node-1] [DEBUG] [1719280272.168071748] [robot_patrol_node]: first_disc_type: DiscontinuityType::DROP
+[robot_patrol_node-1] [DEBUG] [1719280272.168080343] [robot_patrol_node]: marker: LaserTargetType::OBSTACLE
+[robot_patrol_node-1] [DEBUG] [1719280272.168158087] [robot_patrol_node]: Clear span: [47, 693]
+[robot_patrol_node-1] [DEBUG] [1719280272.168171071] [robot_patrol_node]: Clear span: [699, 40]
+[robot_patrol_node-1] [DEBUG] [1719280272.168179579] [robot_patrol_node]: Num clear spans: 2
+[robot_patrol_node-1] [DEBUG] [1719280272.168188179] [robot_patrol_node]: Candidate span [47, 693]
+[robot_patrol_node-1] [DEBUG] [1719280272.168196610] [robot_patrol_node]: Width 647
+[robot_patrol_node-1] [DEBUG] [1719280272.168204906] [robot_patrol_node]: Sufficiently wide
+[robot_patrol_node-1] [DEBUG] [1719280272.168220453] [robot_patrol_node]: Buffered span: start_ix = 62, end_ix = 678, largest_range_index = 634, largest_range = 1.620000
+[robot_patrol_node-1] [DEBUG] [1719280272.168233210] [robot_patrol_node]: Candidate span [699, 40]
+[robot_patrol_node-1] [DEBUG] [1719280272.168241427] [robot_patrol_node]: Width 62
+[robot_patrol_node-1] [DEBUG] [1719280272.168249403] [robot_patrol_node]: Sufficiently wide
+[robot_patrol_node-1] [DEBUG] [1719280272.168258204] [robot_patrol_node]: Buffered span: start_ix = 714, end_ix = 25, largest_range_index = 26, largest_range = 1.964000
+[robot_patrol_node-1] [INFO] [1719280272.168272259] [robot_patrol_node]: Recommended extended direction -2.901932 rad with range 1.964000 m
+[robot_patrol_node-1] [INFO] [1719280272.168283648] [robot_patrol_node]: Found new direction (robot frame) -2.901932 rad
+[robot_patrol_node-1] [DEBUG] [1719280272.223225466] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 16
+[robot_patrol_node-1] [DEBUG] [1719280272.369785313] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 16
+[robot_patrol_node-1] [DEBUG] [1719280272.530161780] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 16
+[robot_patrol_node-1] [DEBUG] [1719280272.688724225] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 16
+[robot_patrol_node-1] [DEBUG] [1719280272.824424725] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 19
+[robot_patrol_node-1] [DEBUG] [1719280272.972833702] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 19
+[robot_patrol_node-1] [DEBUG] [1719280273.120863523] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 17
+[robot_patrol_node-1] [DEBUG] [1719280273.281267063] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [DEBUG] [1719280273.419981531] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 17
+[robot_patrol_node-1] [DEBUG] [1719280273.575929205] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 14
+[robot_patrol_node-1] [DEBUG] [1719280273.710470150] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 12
+[robot_patrol_node-1] [DEBUG] [1719280273.872332353] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 17
+[robot_patrol_node-1] [DEBUG] [1719280274.006395907] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 16
+[robot_patrol_node-1] [DEBUG] [1719280274.151070771] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 17
+[robot_patrol_node-1] [DEBUG] [1719280274.311470342] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 16
+[robot_patrol_node-1] [DEBUG] [1719280274.446038883] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 17
+[robot_patrol_node-1] [DEBUG] [1719280274.594894743] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 16
+[robot_patrol_node-1] [DEBUG] [1719280274.752041288] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 15
+[robot_patrol_node-1] [INFO] [1719280274.768003784] [robot_patrol_node]: Turned within tolerance of new direction
+[robot_patrol_node-1] [INFO] [1719280274.868016612] [robot_patrol_node]: Going forward...
+[robot_patrol_node-1]
+[robot_patrol_node-1] [DEBUG] [1719280274.887294548] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 15
+[robot_patrol_node-1] [DEBUG] [1719280275.048306388] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 13
+[robot_patrol_node-1] [DEBUG] [1719280275.184485472] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 14
+[robot_patrol_node-1] [DEBUG] [1719280275.335842664] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 14
+[robot_patrol_node-1] [DEBUG] [1719280275.478299654] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 13
+[robot_patrol_node-1] [DEBUG] [1719280275.640634179] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 14
+[robot_patrol_node-1] [DEBUG] [1719280275.771800157] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 13
+[robot_patrol_node-1] [DEBUG] [1719280275.932267297] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 14
+[robot_patrol_node-1] [DEBUG] [1719280276.067728995] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 20
+[robot_patrol_node-1] [DEBUG] [1719280276.216203379] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 13
+[robot_patrol_node-1] [DEBUG] [1719280276.374887577] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 15
+[robot_patrol_node-1] [DEBUG] [1719280276.511264019] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 15
+[robot_patrol_node-1] [DEBUG] [1719280276.668286441] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 14
+[robot_patrol_node-1] [DEBUG] [1719280276.806033816] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 15
+[robot_patrol_node-1] [DEBUG] [1719280276.966425993] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 14
+[robot_patrol_node-1] [DEBUG] [1719280277.117917490] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 15
+[robot_patrol_node-1] [DEBUG] [1719280277.266381644] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 17
+[robot_patrol_node-1] [DEBUG] [1719280277.393809769] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 14
+[robot_patrol_node-1] [DEBUG] [1719280277.553672844] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 16
+[robot_patrol_node-1] [DEBUG] [1719280277.699989656] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 13
+[robot_patrol_node-1] [DEBUG] [1719280277.848207307] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 15
+[robot_patrol_node-1] [DEBUG] [1719280277.984443343] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 17
+[robot_patrol_node-1] [DEBUG] [1719280278.131204119] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 15
+[robot_patrol_node-1] [DEBUG] [1719280278.290904956] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 12
+[robot_patrol_node-1] [DEBUG] [1719280278.427082807] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 14
+[robot_patrol_node-1] [DEBUG] [1719280278.585355949] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [DEBUG] [1719280278.720324344] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 13
+[robot_patrol_node-1] [DEBUG] [1719280278.879178995] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 15
+[robot_patrol_node-1] [DEBUG] [1719280279.016374622] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 16
+[robot_patrol_node-1] [DEBUG] [1719280279.167227120] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 13
+[robot_patrol_node-1] [DEBUG] [1719280279.366985812] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 17
+[robot_patrol_node-1] [DEBUG] [1719280279.470079981] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 15
+[robot_patrol_node-1] [DEBUG] [1719280279.628952493] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 13
+[robot_patrol_node-1] [DEBUG] [1719280279.768956536] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 15
+[robot_patrol_node-1] [DEBUG] [1719280279.925263311] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 21
+[robot_patrol_node-1] [DEBUG] [1719280280.073470294] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 17
+[robot_patrol_node-1] [DEBUG] [1719280280.206371251] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 14
+[robot_patrol_node-1] [DEBUG] [1719280280.354095680] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 13
+[robot_patrol_node-1] [DEBUG] [1719280280.500694439] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [DEBUG] [1719280280.665268834] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 21
+[robot_patrol_node-1] [DEBUG] [1719280280.797213422] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 15
+[robot_patrol_node-1] [DEBUG] [1719280280.954977550] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 20
+[robot_patrol_node-1] [DEBUG] [1719280281.092118802] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 23
+[robot_patrol_node-1] [DEBUG] [1719280281.253317997] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 23
+[robot_patrol_node-1] [DEBUG] [1719280281.386954546] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 22
+[robot_patrol_node-1] [DEBUG] [1719280281.545972298] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 23
+[robot_patrol_node-1] [DEBUG] [1719280281.705792033] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 25
+[robot_patrol_node-1] [INFO] [1719280281.768055728] [robot_patrol_node]: Obstacle in front, slowing down
+[robot_patrol_node-1] [DEBUG] [1719280281.839955225] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 22
+[robot_patrol_node-1] [INFO] [1719280281.867980254] [robot_patrol_node]: Looking for safest direction
+[robot_patrol_node-1] [DEBUG] [1719280281.868032055] [robot_patrol_node]: Num INF before clear spans (find_direction_buffers): 0
+[robot_patrol_node-1] [DEBUG] [1719280281.868046036] [robot_patrol_node]: index_zero: 375
+[robot_patrol_node-1] [DEBUG] [1719280281.868055637] [robot_patrol_node]: first_disc_type: DiscontinuityType::DROP
+[robot_patrol_node-1] [DEBUG] [1719280281.868064635] [robot_patrol_node]: marker: LaserTargetType::OBSTACLE
+[robot_patrol_node-1] [DEBUG] [1719280281.868134983] [robot_patrol_node]: Clear span: [380, 374]
+[robot_patrol_node-1] [DEBUG] [1719280281.868144945] [robot_patrol_node]: Num clear spans: 1
+[robot_patrol_node-1] [DEBUG] [1719280281.868153623] [robot_patrol_node]: Candidate span [380, 374]
+[robot_patrol_node-1] [DEBUG] [1719280281.868162485] [robot_patrol_node]: Width 715
+[robot_patrol_node-1] [DEBUG] [1719280281.868173934] [robot_patrol_node]: Sufficiently wide
+[robot_patrol_node-1] [DEBUG] [1719280281.868194713] [robot_patrol_node]: Buffered span: start_ix = 395, end_ix = 359, largest_range_index = 615, largest_range = 1.572000
+[robot_patrol_node-1] [INFO] [1719280281.868209792] [robot_patrol_node]: Recommended normal direction 0.749448 rad with range 1.490000 m
+[robot_patrol_node-1] [INFO] [1719280281.868221772] [robot_patrol_node]: Found new direction (robot frame) 0.749448 rad
+[robot_patrol_node-1] [DEBUG] [1719280281.990674249] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 24
+[robot_patrol_node-1] [DEBUG] [1719280282.147985820] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 27
+[robot_patrol_node-1] [DEBUG] [1719280282.283359203] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 30
+[robot_patrol_node-1] [DEBUG] [1719280282.442247512] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 28
+[robot_patrol_node-1] [DEBUG] [1719280282.577013219] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 33
+[robot_patrol_node-1] [DEBUG] [1719280282.736432312] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 27
+[robot_patrol_node-1] [DEBUG] [1719280282.871910353] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 27
+[robot_patrol_node-1] [DEBUG] [1719280283.033280646] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 23
+[robot_patrol_node-1] [DEBUG] [1719280283.169296199] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 22
+[robot_patrol_node-1] [DEBUG] [1719280283.326440239] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 23
+[robot_patrol_node-1] [DEBUG] [1719280283.461034077] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 26
+[robot_patrol_node-1] [DEBUG] [1719280283.620632480] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 28
+[robot_patrol_node-1] [DEBUG] [1719280283.769117820] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 28
+[robot_patrol_node-1] [DEBUG] [1719280283.930709042] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 25
+[robot_patrol_node-1] [DEBUG] [1719280284.078433460] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 25
+[robot_patrol_node-1] [DEBUG] [1719280284.211358093] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 31
+[robot_patrol_node-1] [INFO] [1719280284.368051657] [robot_patrol_node]: Turned within tolerance of new direction
+[robot_patrol_node-1] [DEBUG] [1719280284.370151211] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 28
+[robot_patrol_node-1] [INFO] [1719280284.468058242] [robot_patrol_node]: Going forward...
+[robot_patrol_node-1]
+[robot_patrol_node-1] [DEBUG] [1719280284.509270343] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 31
+[robot_patrol_node-1] [DEBUG] [1719280284.690449523] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 34
+[robot_patrol_node-1] [DEBUG] [1719280284.800788857] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 28
+[robot_patrol_node-1] [DEBUG] [1719280284.947996399] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 31
+[robot_patrol_node-1] [DEBUG] [1719280285.094365593] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 31
+[robot_patrol_node-1] [DEBUG] [1719280285.254982711] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 32
+[robot_patrol_node-1] [DEBUG] [1719280285.401114392] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 38
+[robot_patrol_node-1] [DEBUG] [1719280285.538021297] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 36
+[robot_patrol_node-1] [DEBUG] [1719280285.684311699] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 37
+[robot_patrol_node-1] [DEBUG] [1719280285.844310430] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 45
+[robot_patrol_node-1] [DEBUG] [1719280285.979909246] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 38
+[robot_patrol_node-1] [DEBUG] [1719280286.127615868] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 40
+[robot_patrol_node-1] [DEBUG] [1719280286.298283423] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 38
+[robot_patrol_node-1] [DEBUG] [1719280286.435469184] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 35
+[robot_patrol_node-1] [DEBUG] [1719280286.595043279] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 41
+[robot_patrol_node-1] [DEBUG] [1719280286.730247815] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 44
+[robot_patrol_node-1] [DEBUG] [1719280286.887917446] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 35
+[robot_patrol_node-1] [DEBUG] [1719280287.021959896] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 36
+[robot_patrol_node-1] [DEBUG] [1719280287.169883346] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 40
+[robot_patrol_node-1] [DEBUG] [1719280287.318532495] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 40
+[robot_patrol_node-1] [DEBUG] [1719280287.467436243] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 40
+[robot_patrol_node-1] [DEBUG] [1719280287.625372390] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 39
+[robot_patrol_node-1] [DEBUG] [1719280287.780378209] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 36
+[robot_patrol_node-1] [DEBUG] [1719280287.918951059] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 36
+[robot_patrol_node-1] [DEBUG] [1719280288.056027742] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 31
+[robot_patrol_node-1] [DEBUG] [1719280288.222111124] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 25
+[robot_patrol_node-1] [DEBUG] [1719280288.348483901] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 23
+[robot_patrol_node-1] [DEBUG] [1719280288.509395207] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 29
+[robot_patrol_node-1] [DEBUG] [1719280288.646984785] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 34
+[robot_patrol_node-1] [DEBUG] [1719280288.804468740] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 27
+[robot_patrol_node-1] [DEBUG] [1719280288.966410896] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 28
+[robot_patrol_node-1] [DEBUG] [1719280289.099102781] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 27
+[robot_patrol_node-1] [DEBUG] [1719280289.233544479] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 27
+[robot_patrol_node-1] [DEBUG] [1719280289.405031479] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 26
+[robot_patrol_node-1] [DEBUG] [1719280289.541958670] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 28
+[robot_patrol_node-1] [DEBUG] [1719280289.710571658] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 24
+[robot_patrol_node-1] [DEBUG] [1719280289.848841136] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 26
+[robot_patrol_node-1] [DEBUG] [1719280289.997371904] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 23
+[robot_patrol_node-1] [DEBUG] [1719280290.129430845] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 19
+[robot_patrol_node-1] [DEBUG] [1719280290.289563517] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [DEBUG] [1719280290.424950075] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [DEBUG] [1719280290.596608746] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 23
+[robot_patrol_node-1] [DEBUG] [1719280290.668078481] [robot_patrol_node]: Adjusting direction...
+[robot_patrol_node-1] [DEBUG] [1719280290.732489231] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 21
+[robot_patrol_node-1] [INFO] [1719280290.768077230] [robot_patrol_node]: Looking for safest direction
+[robot_patrol_node-1] [DEBUG] [1719280290.768129937] [robot_patrol_node]: Num INF before clear spans (find_direction_buffers): 0
+[robot_patrol_node-1] [DEBUG] [1719280290.768141617] [robot_patrol_node]: index_zero: 36
+[robot_patrol_node-1] [DEBUG] [1719280290.768151255] [robot_patrol_node]: first_disc_type: DiscontinuityType::DROP
+[robot_patrol_node-1] [DEBUG] [1719280290.768160330] [robot_patrol_node]: marker: LaserTargetType::OBSTACLE
+[robot_patrol_node-1] [DEBUG] [1719280290.768205624] [robot_patrol_node]: Clear span: [40, 52]
+[robot_patrol_node-1] [DEBUG] [1719280290.768241325] [robot_patrol_node]: Clear span: [74, 35]
+[robot_patrol_node-1] [DEBUG] [1719280290.768249758] [robot_patrol_node]: Num clear spans: 2
+[robot_patrol_node-1] [DEBUG] [1719280290.768261413] [robot_patrol_node]: Candidate span [40, 52]
+[robot_patrol_node-1] [DEBUG] [1719280290.768273775] [robot_patrol_node]: Width 13
+[robot_patrol_node-1] [DEBUG] [1719280290.768282830] [robot_patrol_node]: Too narrow
+[robot_patrol_node-1] [DEBUG] [1719280290.768291065] [robot_patrol_node]: Candidate span [74, 35]
+[robot_patrol_node-1] [DEBUG] [1719280290.768299404] [robot_patrol_node]: Width 682
+[robot_patrol_node-1] [DEBUG] [1719280290.768307685] [robot_patrol_node]: Sufficiently wide
+[robot_patrol_node-1] [DEBUG] [1719280290.768324163] [robot_patrol_node]: Buffered span: start_ix = 89, end_ix = 20, largest_range_index = 672, largest_range = 1.914000
+[robot_patrol_node-1] [INFO] [1719280290.768339064] [robot_patrol_node]: Recommended normal direction 1.568612 rad with range 1.198000 m
+[robot_patrol_node-1] [INFO] [1719280290.768351151] [robot_patrol_node]: Found new direction (robot frame) 1.568612 rad
+[robot_patrol_node-1] [DEBUG] [1719280290.881922926] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 22
+[robot_patrol_node-1] [DEBUG] [1719280291.016430897] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 23
+[robot_patrol_node-1] [DEBUG] [1719280291.174166187] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 22
+[robot_patrol_node-1] [DEBUG] [1719280291.309580014] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 19
+[robot_patrol_node-1] [DEBUG] [1719280291.469047126] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 22
+[robot_patrol_node-1] [DEBUG] [1719280291.604394101] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 17
+[robot_patrol_node-1] [DEBUG] [1719280291.769952231] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 21
+[robot_patrol_node-1] [DEBUG] [1719280291.899698908] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 22
+[robot_patrol_node-1] [DEBUG] [1719280292.060681152] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 23
+[robot_patrol_node-1] [DEBUG] [1719280292.195052094] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 20
+[robot_patrol_node-1] [DEBUG] [1719280292.344171330] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 19
+[robot_patrol_node-1] [DEBUG] [1719280292.490378896] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 22
+[robot_patrol_node-1] [DEBUG] [1719280292.647450060] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 20
+[robot_patrol_node-1] [DEBUG] [1719280292.785264380] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 20
+[robot_patrol_node-1] [DEBUG] [1719280292.943262814] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 19
+[robot_patrol_node-1] [DEBUG] [1719280293.091059161] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 20
+[robot_patrol_node-1] [DEBUG] [1719280293.239180845] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 22
+[robot_patrol_node-1] [INFO] [1719280293.368085641] [robot_patrol_node]: Turned within tolerance of new direction
+[robot_patrol_node-1] [DEBUG] [1719280293.386459280] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 20
+[robot_patrol_node-1] [INFO] [1719280293.468100421] [robot_patrol_node]: Going forward...
+[robot_patrol_node-1]
+[robot_patrol_node-1] [DEBUG] [1719280293.531452594] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [DEBUG] [1719280293.667039425] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 22
+[robot_patrol_node-1] [DEBUG] [1719280293.827427563] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 17
+[robot_patrol_node-1] [DEBUG] [1719280293.986943274] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 24
+[robot_patrol_node-1] [DEBUG] [1719280294.111280377] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 20
+[robot_patrol_node-1] [DEBUG] [1719280294.258036328] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 19
+[robot_patrol_node-1] [DEBUG] [1719280294.834194495] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 20
+[robot_patrol_node-1] [DEBUG] [1719280294.834278360] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 21
+[robot_patrol_node-1] [DEBUG] [1719280294.834331240] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 22
+[robot_patrol_node-1] [DEBUG] [1719280294.848703839] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 21
+[robot_patrol_node-1] [DEBUG] [1719280295.006972748] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 15
+[robot_patrol_node-1] [DEBUG] [1719280295.148647464] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 17
+[robot_patrol_node-1] [DEBUG] [1719280295.300130514] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 21
+[robot_patrol_node-1] [DEBUG] [1719280295.437873083] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [DEBUG] [1719280295.609815613] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 21
+[robot_patrol_node-1] [DEBUG] [1719280295.732209947] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 15
+[robot_patrol_node-1] [DEBUG] [1719280295.890196937] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 16
+[robot_patrol_node-1] [DEBUG] [1719280296.026250111] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 20
+[robot_patrol_node-1] [DEBUG] [1719280296.178092804] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [DEBUG] [1719280296.335536833] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 19
+[robot_patrol_node-1] [DEBUG] [1719280296.480526702] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [DEBUG] [1719280296.628609430] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 17
+[robot_patrol_node-1] [DEBUG] [1719280296.767408484] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 20
+[robot_patrol_node-1] [DEBUG] [1719280296.922924045] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 21
+[robot_patrol_node-1] [DEBUG] [1719280297.057043187] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 20
+[robot_patrol_node-1] [DEBUG] [1719280297.217718723] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 22
+[robot_patrol_node-1] [DEBUG] [1719280297.352006644] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [DEBUG] [1719280297.516250887] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [DEBUG] [1719280297.647746980] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 19
+[robot_patrol_node-1] [DEBUG] [1719280297.806512658] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 20
+[robot_patrol_node-1] [DEBUG] [1719280297.946689227] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 19
+[robot_patrol_node-1] [DEBUG] [1719280298.088718193] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 14
+[robot_patrol_node-1] [DEBUG] [1719280298.250188784] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 16
+[robot_patrol_node-1] [DEBUG] [1719280298.384400718] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 17
+[robot_patrol_node-1] [DEBUG] [1719280298.543710874] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 20
+[robot_patrol_node-1] [DEBUG] [1719280298.703166390] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [DEBUG] [1719280298.838719576] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 23
+[robot_patrol_node-1] [DEBUG] [1719280298.999341702] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 23
+[robot_patrol_node-1] [DEBUG] [1719280299.149297414] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 15
+[robot_patrol_node-1] [DEBUG] [1719280299.295320731] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [DEBUG] [1719280299.430268244] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 23
+[robot_patrol_node-1] [DEBUG] [1719280299.589109178] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [DEBUG] [1719280299.755309949] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 22
+[robot_patrol_node-1] [DEBUG] [1719280299.884415292] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [DEBUG] [1719280300.017994703] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [DEBUG] [1719280300.176278183] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 14
+[robot_patrol_node-1] [DEBUG] [1719280300.318452904] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 22
+[robot_patrol_node-1] [DEBUG] [1719280300.472149602] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 17
+[robot_patrol_node-1] [DEBUG] [1719280300.634785023] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 19
+[robot_patrol_node-1] [DEBUG] [1719280300.769375905] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 20
+[robot_patrol_node-1] [DEBUG] [1719280300.904378913] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 20
+[robot_patrol_node-1] [DEBUG] [1719280301.051686544] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [DEBUG] [1719280301.197314850] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [DEBUG] [1719280301.357839011] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 21
+[robot_patrol_node-1] [DEBUG] [1719280301.493071151] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 20
+[robot_patrol_node-1] [DEBUG] [1719280301.650329856] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 15
+[robot_patrol_node-1] [DEBUG] [1719280301.787178395] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 21
+[robot_patrol_node-1] [DEBUG] [1719280301.945655306] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 16
+[robot_patrol_node-1] [DEBUG] [1719280302.081014401] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 19
+[robot_patrol_node-1] [DEBUG] [1719280302.240338444] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 18
+[robot_patrol_node-1] [DEBUG] [1719280302.378288576] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 19
+[robot_patrol_node-1] [DEBUG] [1719280302.524455571] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 20
+[robot_patrol_node-1] [DEBUG] [1719280303.123073276] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 21
+[robot_patrol_node-1] [DEBUG] [1719280303.123162340] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 23
+[robot_patrol_node-1] [DEBUG] [1719280303.123203196] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 22
+[robot_patrol_node-1] [DEBUG] [1719280303.123242480] [robot_patrol_node]: Num INF after cleanup (laser_scan_callback): 20
+[robot_patrol_node-1] [DEBUG] [1719280303.168134570] [robot_patrol_node]: Adjusting direction...
+[robot_patrol_node-1] [INFO] [1719280303.268118059] [robot_patrol_node]: Looking for safest direction
+[robot_patrol_node-1] [DEBUG] [1719280303.268197853] [robot_patrol_node]: Num INF before clear spans (find_direction_buffers): 0
+[robot_patrol_node-1] [DEBUG] [1719280303.268217518] [robot_patrol_node]: index_zero: 647
+[robot_patrol_node-1] [DEBUG] [1719280303.268230325] [robot_patrol_node]: first_disc_type: DiscontinuityType::DROP
+[robot_patrol_node-1] [DEBUG] [1719280303.268257961] [robot_patrol_node]: marker: LaserTargetType::OBSTACLE
+[robot_patrol_node-1] [DEBUG] [1719280303.268302812] [robot_patrol_node]: Clear span: [653, 659]
+[robot_patrol_node-1] [DEBUG] [1719280303.268337443] [robot_patrol_node]: Num clear spans: 1
+[robot_patrol_node-1] [DEBUG] [1719280303.268346718] [robot_patrol_node]: Candidate span [653, 659]
+[robot_patrol_node-1] [DEBUG] [1719280303.268355887] [robot_patrol_node]: Width 7
+[robot_patrol_node-1] [DEBUG] [1719280303.268364493] [robot_patrol_node]: Too narrow
+[ERROR] [robot_patrol_node-1]: process has died [pid 5205, exit code -11, cmd '/home/user/ros2_ws/install/robot_patrol/lib/robot_patrol/robot_patrol_node --ros-args'].
+user:~/ros2_ws$
+```

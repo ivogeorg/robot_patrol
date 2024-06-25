@@ -136,7 +136,7 @@ private:
 
   // TODO: calculate in function
   // This is about 2 * robot width (from URDF model)
-  const int BUFFER = 40;                  // buffer angle to add to clear spans
+  const int BUFFER = 15;                  // buffer angle to add to clear spans
   const int ROBOT_CLEARANCE = 2 * BUFFER; // filter criterion for clear spans
   // end TODO
 
@@ -371,7 +371,7 @@ void Patrol::velocity_callback() {
       // Start turning early
       if (range_to_front_obstacle <= 2 * OBSTACLE_FWD_PROXIMITY) {
         state_ = State::FIND_NEW_DIR;
-        RCLCPP_DEBUG(this->get_logger(), "Turning early...");
+        RCLCPP_DEBUG(this->get_logger(), "Adjusting direction...");
       }
 
       // clear all anomaly tracking and reporting variables
@@ -521,11 +521,12 @@ void Patrol::laser_scan_callback(
   }
 
   // DEBUG
-  //   int inf_ct = 0;
-  //   for (auto &d : laser_scan_data_.ranges)
-  //     if (std::isinf(d))
-  //       ++inf_ct;
-  //   RCLCPP_DEBUG(this->get_logger(), "Num inf: %d", inf_ct);
+  int inf_ct = 0;
+  for (auto &d : laser_scan_data_.ranges)
+    if (std::isinf(d))
+      ++inf_ct;
+  RCLCPP_DEBUG(this->get_logger(),
+               "Num INF after cleanup (laser_scan_callback): %d", inf_ct);
   // end DEBUG
 
   have_laser_ = true;
@@ -890,6 +891,20 @@ void Patrol::find_direction_buffers(bool extended) {
   std::vector<double> ranges(laser_scan_data_.ranges.begin(),
                              laser_scan_data_.ranges.end());
 
+  for (auto &r : ranges)
+    if (std::isinf(r))
+      r = 1.0;
+
+  // DEBUG
+  int inf_ct = 0;
+  for (auto &d : ranges)
+    if (std::isinf(d))
+      ++inf_ct;
+  RCLCPP_DEBUG(this->get_logger(),
+               "Num INF before clear spans (find_direction_buffers): %d",
+               inf_ct);
+  // end DEBUG
+
   // 1. In a circular array, find the first discontinuity
   int size = static_cast<int>(ranges.size());
 
@@ -1020,6 +1035,12 @@ void Patrol::find_direction_buffers(bool extended) {
   // DEBUG
   RCLCPP_DEBUG(this->get_logger(), "Num clear spans: %d",
                static_cast<int>(clear_spans.size()));
+
+//   if (clear_spans.size() == 0) {
+//     for (int i = 0; i < size; ++i)
+//       std::cout << i << ": " << ranges[i] << '\n';
+//   }
+//   std::cout << '\n' << std::flush;
   // end DEBUG
 
   // 4. Apply buffers and filter by width
