@@ -221,7 +221,7 @@ Patrol::Patrol() : Node("robot_patrol_node") {
 
 // publisher
 void Patrol::velocity_callback() {
-//   RCLCPP_DEBUG(this->get_logger(), "Velocity callback");
+  //   RCLCPP_DEBUG(this->get_logger(), "Velocity callback");
 
   // Avoid accessing uninitialized data structures
   // Both laser scan and odometry data is required
@@ -353,8 +353,8 @@ void Patrol::velocity_callback() {
     // set cmd_vel_msg_.linear.x = 0.0
     // set cmd_vel_msg_.angular.z = 0.0
 
-    // TODO: if range_to_front_obstacle <= 2 * OBSTACLE_FWD_PROXIMITY
-    //       don't modify angular, else zero it out
+    // If range_to_front_obstacle <= 2 * OBSTACLE_FWD_PROXIMITY
+    // start turning (see below)
     std::tie(range_to_front_obstacle, is_obstacle, inf_ratio) =
         obstacle_in_range(FRONT_FROM, FRONT_TO, RANGES_SIZE,
                           OBSTACLE_FWD_PROXIMITY);
@@ -367,6 +367,12 @@ void Patrol::velocity_callback() {
     } else {
       cmd_vel_msg_.linear.x = LINEAR_BASE;
       cmd_vel_msg_.angular.z = 0.0;
+
+      // Start turning early
+      if (range_to_front_obstacle <= 2 * OBSTACLE_FWD_PROXIMITY) {
+        state_ = State::FIND_NEW_DIR;
+        RCLCPP_DEBUG(this->get_logger(), "Turning early...");
+      }
 
       // clear all anomaly tracking and reporting variables
       turns_in_a_row_ = 0;
@@ -433,7 +439,7 @@ void Patrol::velocity_callback() {
       turning_ = true;
     } else {
       // reached goal angle within tolerance, stop turning
-    //   RCLCPP_DEBUG(this->get_logger(), "Resulting yaw %f", yaw_);
+      //   RCLCPP_DEBUG(this->get_logger(), "Resulting yaw %f", yaw_);
       RCLCPP_INFO(this->get_logger(),
                   "Turned within tolerance of new direction");
       cmd_vel_msg_.linear.x = LINEAR_TURN;
@@ -497,7 +503,7 @@ void Patrol::velocity_callback() {
 // subscriber
 void Patrol::laser_scan_callback(
     const sensor_msgs::msg::LaserScan::SharedPtr msg) {
-//   RCLCPP_DEBUG(this->get_logger(), "Laser scan callback");
+  //   RCLCPP_DEBUG(this->get_logger(), "Laser scan callback");
   laser_scan_data_ = *msg;
 
   // Clean up stray inf
@@ -530,13 +536,13 @@ void Patrol::laser_scan_callback(
 
 // subscriber
 void Patrol::odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
-//   RCLCPP_DEBUG(this->get_logger(), "Odometry callback");
+  //   RCLCPP_DEBUG(this->get_logger(), "Odometry callback");
   odom_data_ = *msg;
   have_odom_ = true;
   yaw_ = yaw_from_quaternion(
       msg->pose.pose.orientation.x, msg->pose.pose.orientation.y,
       msg->pose.pose.orientation.z, msg->pose.pose.orientation.w);
-//   RCLCPP_DEBUG(this->get_logger(), "Current orientation is %f", yaw_);
+  //   RCLCPP_DEBUG(this->get_logger(), "Current orientation is %f", yaw_);
 }
 
 // end callbacks
@@ -653,7 +659,7 @@ Patrol::obstacle_in_range(int from, int to, int ranges_size, double dist) {
     if (i == (to + 1) % ranges_size)
       break; // circular array!
   }
-//   RCLCPP_DEBUG(this->get_logger(), "Inf: %d/%d", num_inf, to - from - 1);
+  //   RCLCPP_DEBUG(this->get_logger(), "Inf: %d/%d", num_inf, to - from - 1);
   return std::make_tuple(ranges[FRONT], is_obstacle, num_inf);
 }
 
@@ -1154,7 +1160,6 @@ int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
 
   auto logger = rclcpp::get_logger("robot_patrol_node");
-  
 
   // Set the log level to DEBUG
   if (rcutils_logging_set_logger_level(
