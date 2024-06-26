@@ -14,6 +14,7 @@
 #include "rclcpp/rclcpp.hpp"
 
 #include <algorithm> // for std::sort
+#include <cassert>
 #include <chrono>
 #include <cmath> // for std::isinf(), atan2(y, x)
 #include <math.h>
@@ -136,7 +137,7 @@ private:
 
   // TODO: calculate in function
   // This is about 2 * robot width (from URDF model)
-  const int BUFFER = 15;                  // buffer angle to add to clear spans
+  const int BUFFER = 40;                  // buffer angle to add to clear spans
   const int ROBOT_CLEARANCE = 2 * BUFFER; // filter criterion for clear spans
   // end TODO
 
@@ -187,7 +188,8 @@ private:
   void find_direction_heuristic(bool extended = false,
                                 DirSafetyBias dir_bias = DirSafetyBias::ANGLE,
                                 DirPref dir_pref = DirPref::NONE);
-  void find_direction_buffers(bool extended = false);
+  void find_direction_foreground_buffers(bool extended = false);
+  void find_direction_arc_sums();
   double normalize_angle(double angle);
   // end utility functions
 };
@@ -391,7 +393,9 @@ void Patrol::velocity_callback() {
 
     // globals that control range and bias can be set elsewhere
 
-    find_direction_buffers(extended_angle_range_);
+    // find_direction_foreground_buffers(extended_angle_range_);
+
+    find_direction_arc_sums();
 
     // find_direction_heuristic(extended_angle_range_, dir_safety_bias_,
     //                       DirPref::NONE); // true = extend side ranges
@@ -521,13 +525,13 @@ void Patrol::laser_scan_callback(
   }
 
   // DEBUG
-  int inf_ct = 0;
-  for (auto &d : laser_scan_data_.ranges)
-    if (std::isinf(d))
-      ++inf_ct;
-  RCLCPP_DEBUG(this->get_logger(),
-               "Num INF after cleanup (laser_scan_callback): %d", inf_ct);
-  // end DEBUG
+  //   int inf_ct = 0;
+  //   for (auto &d : laser_scan_data_.ranges)
+  //     if (std::isinf(d))
+  //       ++inf_ct;
+  //   RCLCPP_DEBUG(this->get_logger(),
+  //                "Num INF after cleanup (laser_scan_callback): %d", inf_ct);
+  //   // end DEBUG
 
   have_laser_ = true;
 
@@ -885,7 +889,7 @@ void Patrol::find_direction_heuristic(bool extended, DirSafetyBias dir_bias,
 // spans of indices will each yield a direction
 // from the middle of the span and finally the
 // candidates will be sorted by width and range.
-void Patrol::find_direction_buffers(bool extended) {
+void Patrol::find_direction_foreground_buffers(bool extended) {
   RCLCPP_INFO(this->get_logger(), "Looking for safest direction");
 
   std::vector<double> ranges(laser_scan_data_.ranges.begin(),
@@ -900,9 +904,10 @@ void Patrol::find_direction_buffers(bool extended) {
   for (auto &d : ranges)
     if (std::isinf(d))
       ++inf_ct;
-  RCLCPP_DEBUG(this->get_logger(),
-               "Num INF before clear spans (find_direction_buffers): %d",
-               inf_ct);
+  RCLCPP_DEBUG(
+      this->get_logger(),
+      "Num INF before clear spans (find_direction_foreground_buffers): %d",
+      inf_ct);
   // end DEBUG
 
   // 1. In a circular array, find the first discontinuity
@@ -1036,11 +1041,11 @@ void Patrol::find_direction_buffers(bool extended) {
   RCLCPP_DEBUG(this->get_logger(), "Num clear spans: %d",
                static_cast<int>(clear_spans.size()));
 
-//   if (clear_spans.size() == 0) {
-//     for (int i = 0; i < size; ++i)
-//       std::cout << i << ": " << ranges[i] << '\n';
-//   }
-//   std::cout << '\n' << std::flush;
+  //   if (clear_spans.size() == 0) {
+  //     for (int i = 0; i < size; ++i)
+  //       std::cout << i << ": " << ranges[i] << '\n';
+  //   }
+  //   std::cout << '\n' << std::flush;
   // end DEBUG
 
   // 4. Apply buffers and filter by width
@@ -1165,6 +1170,89 @@ void Patrol::find_direction_buffers(bool extended) {
   // end DEBUG
 
   // 7. Restore extended range and bias defaults
+  extended_angle_range_ = false;
+}
+
+void Patrol::find_direction_arc_sums() {
+  // 1. Define ANGLE (size has to divide evenly) and INF_MASK
+  const int ANGLE = 10;
+  const double INF_MASK = 1.0;
+
+  // 2. Divide ranges array into ANGLE arcs, sum up, and find the maximum range
+  // 3. Apply 180-deg constraint or extended (full circle)
+  std::vector<std::pair<double, int>> arcs;
+  int size = static_cast<int>(laser_scan_data_.ranges.size());
+  int longest_range_ix = -1;
+  int start_ix, end_ix;
+  double longest_range = 0.0, range;
+  double sum = 0.0;
+  for (int i = 0; i < size; i = i + ANGLE) {
+    start_ix = i;
+    end_ix = i + ANGLE;
+
+    for (int j = start_ix; j < end_ix; ++j) {
+      // mask inf
+      range = std::isinf(laser_scan_data_.ranges[j])
+                  ? INF_MASK
+                  : laser_scan_data_.ranges[j];
+      if (range > longest_range) {
+        longest_range = range;
+        longest_range_ix = j;
+      }
+      sum += range;
+    }
+
+    // constrain the range angle to +/- pi when not extended
+    if (longest_range_ix >= RIGHT && longest_range_ix <= LEFT) {
+      arcs.push_back(std::make_pair(sum, longest_range_ix));
+
+      // DEBUG
+      RCLCPP_DEBUG(this->get_logger(), "Arc [%d, %d]", start_ix, end_ix);
+      RCLCPP_DEBUG(this->get_logger(), "Arc {Sum: %f}", sum);
+      RCLCPP_DEBUG(this->get_logger(), "Arc {Ix: %d, Angle: %f}",
+                   longest_range_ix,
+                   (longest_range_ix - FRONT) * ANGLE_INCREMENT);
+      RCLCPP_DEBUG(this->get_logger(), "Arc {Longest range: %f}\n",
+                   longest_range);
+      // end DEBUG
+    }
+    // else {
+
+    //   // DEBUG
+    //   RCLCPP_DEBUG(this->get_logger(), "Ignoring");
+    //   // end DEBUG
+    // }
+    sum = 0.0;
+    longest_range = 0.0;
+    longest_range_ix = -1;
+  }
+
+  // 4. Sort descending by sum
+  // DEBUG
+  //   assert(arcs.size() > 0 && "NOTE: arc vector nonzero size");
+  // DEBUG
+  RCLCPP_DEBUG(this->get_logger(), "Num arcs: %d",
+               static_cast<int>(arcs.size()));
+  // end DEBUG
+  // end DEBUG
+  std::sort(arcs.begin(), arcs.end(),
+            [](const std::pair<double, int> &a,
+               const std::pair<double, int> &b) { return a.first > b.first; });
+
+  // 5. Pick the maximum range index
+  std::tie(sum, longest_range_ix) = arcs[0];
+
+  // DEBUG
+  RCLCPP_DEBUG(this->get_logger(), "Arc {Sum: %f}", sum);
+  RCLCPP_DEBUG(this->get_logger(), "Arc {Ix: %d, Angle: %f}", longest_range_ix,
+               (longest_range_ix - FRONT) * ANGLE_INCREMENT);
+  RCLCPP_DEBUG(this->get_logger(), "Arc {Longest range: %f}",
+               laser_scan_data_.ranges[longest_range_ix]);
+  // end DEBUG
+
+  direction_ = (longest_range_ix - FRONT) * ANGLE_INCREMENT;
+
+  // 6. Restore extended range and bias defaults
   extended_angle_range_ = false;
 }
 
