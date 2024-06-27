@@ -1178,18 +1178,9 @@ void Patrol::find_direction_foreground_buffers(bool extended) {
 
 void Patrol::find_direction_arc_sums(bool extended) {
   // 1. Define ANGLE (size has to divide evenly) and INF_MASK
-  //   const int ANGLE = 10;
   const int ANGLE = 20;
-  //   const double INF_MASK = 1.0;
 
   int size = static_cast<int>(laser_scan_data_.ranges.size());
-
-  //   const int buffer = size / 660 * BUFFER; // BUFFER = 40
-  //   const int buffer = 0;
-
-  // DEBUG
-  //   RCLCPP_DEBUG(this->get_logger(), "buffer = %d", buffer);
-  // end DEBUG
 
   // 2. Divide ranges array into ANGLE arcs, sum up, and find the maximum range
   // 3. Apply 180-deg constraint or extended (full circle)
@@ -1207,10 +1198,7 @@ void Patrol::find_direction_arc_sums(bool extended) {
     end_ix = i + ANGLE;
 
     for (int j = start_ix; j < end_ix; ++j) {
-      // mask inf
-      //   range = std::isinf(laser_scan_data_.ranges[j])
-      //               ? INF_MASK
-      //               : laser_scan_data_.ranges[j];
+
       if (!std::isinf(laser_scan_data_.ranges[j])) {
         range = laser_scan_data_.ranges[j];
         if (range > longest_range) {
@@ -1229,14 +1217,14 @@ void Patrol::find_direction_arc_sums(bool extended) {
       arcs.push_back(std::make_tuple(big_sum, sum, longest_range_ix));
 
       // DEBUG
-      RCLCPP_DEBUG(this->get_logger(), "Arc [%d, %d]", start_ix, end_ix);
-      RCLCPP_DEBUG(this->get_logger(), "Arc {Big sum: %f, Sum: %f}", big_sum,
-                   sum);
-      RCLCPP_DEBUG(this->get_logger(), "Arc {Ix: %d, Angle: %f}",
-                   longest_range_ix,
-                   (longest_range_ix - FRONT) * ANGLE_INCREMENT);
-      RCLCPP_DEBUG(this->get_logger(), "Arc {Longest range: %f}\n",
-                   longest_range);
+    //   RCLCPP_DEBUG(this->get_logger(), "Arc [%d, %d]", start_ix, end_ix);
+    //   RCLCPP_DEBUG(this->get_logger(), "Arc {Big sum: %f, Sum: %f}", big_sum,
+    //                sum);
+    //   RCLCPP_DEBUG(this->get_logger(), "Arc {Ix: %d, Angle: %f}",
+    //                longest_range_ix,
+    //                (longest_range_ix - FRONT) * ANGLE_INCREMENT);
+    //   RCLCPP_DEBUG(this->get_logger(), "Arc {Longest range: %f}\n",
+    //                longest_range);
       // end DEBUG
     }
     // else {
@@ -1270,11 +1258,11 @@ void Patrol::find_direction_arc_sums(bool extended) {
   std::tie(big_sum, sum, longest_range_ix) = arcs[0];
 
   // DEBUG
-  RCLCPP_DEBUG(this->get_logger(), "Direction selected:");
+  RCLCPP_INFO(this->get_logger(), "Direction selected:");
   RCLCPP_DEBUG(this->get_logger(), "Arc {Big sum: %f, Sum: %f}", big_sum, sum);
-  RCLCPP_DEBUG(this->get_logger(), "Arc {Ix: %d, Angle: %f}", longest_range_ix,
+  RCLCPP_INFO(this->get_logger(), "Arc {Ix: %d, Angle: %f}", longest_range_ix,
                (longest_range_ix - FRONT) * ANGLE_INCREMENT);
-  RCLCPP_DEBUG(this->get_logger(), "Arc {Longest range: %f}\n",
+  RCLCPP_INFO(this->get_logger(), "Arc {Longest range: %f}\n",
                laser_scan_data_.ranges[longest_range_ix]);
   // end DEBUG
 
@@ -1308,14 +1296,14 @@ int main(int argc, char *argv[]) {
 
   auto logger = rclcpp::get_logger("robot_patrol_node");
 
-  // Set the log level to DEBUG
-  if (rcutils_logging_set_logger_level(
-          logger.get_name(), RCUTILS_LOG_SEVERITY_DEBUG) != RCUTILS_RET_OK) {
-    // Handle the error (e.g., print an error message or throw an exception)
-    RCLCPP_ERROR(logger, "Failed to set logger level for robot_patrol_node.");
-  } else {
-    RCLCPP_INFO(logger, "Successfully set logger level for robot_patrol_node.");
-  }
+//   // Set the log level to DEBUG
+//   if (rcutils_logging_set_logger_level(
+//           logger.get_name(), RCUTILS_LOG_SEVERITY_DEBUG) != RCUTILS_RET_OK) {
+//     // Handle the error (e.g., print an error message or throw an exception)
+//     RCLCPP_ERROR(logger, "Failed to set logger level for robot_patrol_node.");
+//   } else {
+//     RCLCPP_INFO(logger, "Successfully set logger level for robot_patrol_node.");
+//   }
 
   rclcpp::spin(std::make_shared<Patrol>());
   rclcpp::shutdown();
