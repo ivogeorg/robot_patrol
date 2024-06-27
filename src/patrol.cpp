@@ -192,7 +192,7 @@ private:
                                 DirSafetyBias dir_bias = DirSafetyBias::ANGLE,
                                 DirPref dir_pref = DirPref::NONE);
   void find_direction_foreground_buffers(bool extended = false);
-  void find_direction_arc_sums();
+  void find_direction_arc_sums(bool extended = false);
   double normalize_angle(double angle);
   // end utility functions
 };
@@ -398,7 +398,7 @@ void Patrol::velocity_callback() {
 
     // find_direction_foreground_buffers(extended_angle_range_);
 
-    find_direction_arc_sums();
+    find_direction_arc_sums(extended_angle_range_);
 
     // find_direction_heuristic(extended_angle_range_, dir_safety_bias_,
     //                       DirPref::NONE); // true = extend side ranges
@@ -1176,7 +1176,7 @@ void Patrol::find_direction_foreground_buffers(bool extended) {
   extended_angle_range_ = false;
 }
 
-void Patrol::find_direction_arc_sums() {
+void Patrol::find_direction_arc_sums(bool extended) {
   // 1. Define ANGLE (size has to divide evenly) and INF_MASK
   //   const int ANGLE = 10;
   const int ANGLE = 20;
@@ -1225,7 +1225,7 @@ void Patrol::find_direction_arc_sums() {
         big_sum += laser_scan_data_.ranges[k];
 
     // constrain the range angle to +/- pi when not extended
-    if (longest_range_ix >= RIGHT && longest_range_ix <= LEFT) {
+    if (extended || (!extended && longest_range_ix >= RIGHT && longest_range_ix <= LEFT)) {
       arcs.push_back(std::make_tuple(big_sum, sum, longest_range_ix));
 
       // DEBUG
