@@ -118,6 +118,7 @@ private:
   const double OBSTACLE_FWD_PROXIMITY = 0.35;
   const double ANGULAR_TOLERANCE_DEG = 1.5;
   const double ANGULAR_TOLERANCE = ANGULAR_TOLERANCE_DEG * DEG2RAD;
+  const double DIRECTION_TURN_DIVISOR = 1.5; // REQUIREMENT 2.0
 
   // Distance ratio of foreground to background obstacles
   //   ratio = range / last_range;
@@ -137,7 +138,9 @@ private:
 
   // TODO: calculate in function
   // This is about 2 * robot width (from URDF model)
-  const int BUFFER = 40;                  // buffer angle to add to clear spans
+  //   const int BUFFER = 40;                  // buffer angle to add to clear
+  //   spans
+  const int BUFFER = 30;                  // buffer angle to add to clear spans
   const int ROBOT_CLEARANCE = 2 * BUFFER; // filter criterion for clear spans
   // end TODO
 
@@ -432,7 +435,7 @@ void Patrol::velocity_callback() {
         (goal_angle < 0 && (abs(turn_angle - ANGULAR_TOLERANCE) <
                             abs(direction_)))) { // need to turn (more)
       cmd_vel_msg_.linear.x = LINEAR_TURN;
-      cmd_vel_msg_.angular.z = direction_ / 2.0;
+      cmd_vel_msg_.angular.z = direction_ / DIRECTION_TURN_DIVISOR;
 
       double temp_yaw = yaw_;
       double delta_angle = normalize_angle(temp_yaw - last_angle);
@@ -1175,40 +1178,60 @@ void Patrol::find_direction_foreground_buffers(bool extended) {
 
 void Patrol::find_direction_arc_sums() {
   // 1. Define ANGLE (size has to divide evenly) and INF_MASK
-  const int ANGLE = 10;
-  const double INF_MASK = 1.0;
+  //   const int ANGLE = 10;
+  const int ANGLE = 20;
+  //   const double INF_MASK = 1.0;
+
+  int size = static_cast<int>(laser_scan_data_.ranges.size());
+
+  //   const int buffer = size / 660 * BUFFER; // BUFFER = 40
+  //   const int buffer = 0;
+
+  // DEBUG
+  //   RCLCPP_DEBUG(this->get_logger(), "buffer = %d", buffer);
+  // end DEBUG
 
   // 2. Divide ranges array into ANGLE arcs, sum up, and find the maximum range
   // 3. Apply 180-deg constraint or extended (full circle)
-  std::vector<std::pair<double, int>> arcs;
-  int size = static_cast<int>(laser_scan_data_.ranges.size());
+  std::vector<std::tuple<double, double, int>> arcs;
+
+  // std::make_tuple(big sum, sum, longest_range_ix)
+
   int longest_range_ix = -1;
   int start_ix, end_ix;
   double longest_range = 0.0, range;
-  double sum = 0.0;
-  for (int i = 0; i < size; i = i + ANGLE) {
+  double sum = 0.0, big_sum = 0.0;
+
+  for (int i = ANGLE; i < size - ANGLE; i = i + ANGLE) {
     start_ix = i;
     end_ix = i + ANGLE;
 
     for (int j = start_ix; j < end_ix; ++j) {
       // mask inf
-      range = std::isinf(laser_scan_data_.ranges[j])
-                  ? INF_MASK
-                  : laser_scan_data_.ranges[j];
-      if (range > longest_range) {
-        longest_range = range;
-        longest_range_ix = j;
+      //   range = std::isinf(laser_scan_data_.ranges[j])
+      //               ? INF_MASK
+      //               : laser_scan_data_.ranges[j];
+      if (!std::isinf(laser_scan_data_.ranges[j])) {
+        range = laser_scan_data_.ranges[j];
+        if (range > longest_range) {
+          longest_range = range;
+          longest_range_ix = j;
+        }
+        sum += range;
       }
-      sum += range;
     }
+    for (int k = start_ix - ANGLE; k < end_ix + ANGLE; ++k)
+      if (!std::isinf(laser_scan_data_.ranges[k]))
+        big_sum += laser_scan_data_.ranges[k];
 
     // constrain the range angle to +/- pi when not extended
     if (longest_range_ix >= RIGHT && longest_range_ix <= LEFT) {
-      arcs.push_back(std::make_pair(sum, longest_range_ix));
+      arcs.push_back(std::make_tuple(big_sum, sum, longest_range_ix));
 
       // DEBUG
       RCLCPP_DEBUG(this->get_logger(), "Arc [%d, %d]", start_ix, end_ix);
-      RCLCPP_DEBUG(this->get_logger(), "Arc {Sum: %f}", sum);
+      RCLCPP_DEBUG(this->get_logger(), "Arc {Big sum: %f, Sum: %f}", big_sum,
+                   sum);
       RCLCPP_DEBUG(this->get_logger(), "Arc {Ix: %d, Angle: %f}",
                    longest_range_ix,
                    (longest_range_ix - FRONT) * ANGLE_INCREMENT);
@@ -1223,6 +1246,7 @@ void Patrol::find_direction_arc_sums() {
     //   // end DEBUG
     // }
     sum = 0.0;
+    big_sum = 0.0;
     longest_range = 0.0;
     longest_range_ix = -1;
   }
@@ -1231,28 +1255,42 @@ void Patrol::find_direction_arc_sums() {
   // DEBUG
   //   assert(arcs.size() > 0 && "NOTE: arc vector nonzero size");
   // DEBUG
-  RCLCPP_DEBUG(this->get_logger(), "Num arcs: %d",
+  RCLCPP_DEBUG(this->get_logger(), "Num arcs: %d\n",
                static_cast<int>(arcs.size()));
   // end DEBUG
   // end DEBUG
   std::sort(arcs.begin(), arcs.end(),
-            [](const std::pair<double, int> &a,
-               const std::pair<double, int> &b) { return a.first > b.first; });
+            [](const std::tuple<double, double, int> &a,
+               const std::tuple<double, double, int> &b) {
+              return std::get<0>(a) > std::get<0>(b) &&
+                     std::get<1>(a) > std::get<1>(b);
+            });
 
   // 5. Pick the maximum range index
-  std::tie(sum, longest_range_ix) = arcs[0];
+  std::tie(big_sum, sum, longest_range_ix) = arcs[0];
 
   // DEBUG
-  RCLCPP_DEBUG(this->get_logger(), "Arc {Sum: %f}", sum);
+  RCLCPP_DEBUG(this->get_logger(), "Direction selected:");
+  RCLCPP_DEBUG(this->get_logger(), "Arc {Big sum: %f, Sum: %f}", big_sum, sum);
   RCLCPP_DEBUG(this->get_logger(), "Arc {Ix: %d, Angle: %f}", longest_range_ix,
                (longest_range_ix - FRONT) * ANGLE_INCREMENT);
-  RCLCPP_DEBUG(this->get_logger(), "Arc {Longest range: %f}",
+  RCLCPP_DEBUG(this->get_logger(), "Arc {Longest range: %f}\n",
                laser_scan_data_.ranges[longest_range_ix]);
   // end DEBUG
 
   direction_ = (longest_range_ix - FRONT) * ANGLE_INCREMENT;
 
-  // 6. Restore extended range and bias defaults
+  // 6. Apply buffer in the opposite direction of angle change
+  // if (direction_ > 0)
+  //   direction_ -= buffer * ANGLE_INCREMENT;
+  // else
+  //   direction_ += buffer * ANGLE_INCREMENT;
+
+  // DEBUG
+  // RCLCPP_DEBUG(this->get_logger(), "Arc {Buffered angle: %f}\n",
+  // direction_); end DEBUG
+
+  // 7. Restore extended range and bias defaults
   extended_angle_range_ = false;
 }
 
