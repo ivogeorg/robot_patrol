@@ -1294,7 +1294,7 @@ double Patrol::normalize_angle(double angle) {
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
 
-  auto logger = rclcpp::get_logger("robot_patrol_node");
+//   auto logger = rclcpp::get_logger("robot_patrol_node");
 
 //   // Set the log level to DEBUG
 //   if (rcutils_logging_set_logger_level(

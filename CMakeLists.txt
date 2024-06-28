@@ -14,7 +14,7 @@ find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
-# find_package(rosidl_default_generators REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -28,10 +28,10 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-# rosidl_generate_interfaces(${PROJECT_NAME}
-# 	"srv/GetDirection.srv"
-# 	DEPENDENCIES sensor_msgs
-# )
+rosidl_generate_interfaces(${PROJECT_NAME}
+	"srv/GetDirection.srv"
+	DEPENDENCIES sensor_msgs
+)
 
 add_executable(${PROJECT_NAME}_node src/patrol.cpp)
 ament_target_dependencies(${PROJECT_NAME}_node rclcpp geometry_msgs sensor_msgs nav_msgs)
@@ -42,23 +42,23 @@ ament_target_dependencies(laser_scan_subscriber_node rclcpp sensor_msgs)
 add_executable(find_direction_buffers_node src/find_direction_buffers.cpp)
 ament_target_dependencies(find_direction_buffers_node rclcpp sensor_msgs)
 
-# add_executable(direction_service_node src/direction_service.cpp)
-# ament_target_dependencies(direction_service_node rclcpp)
+add_executable(direction_service_node src/direction_service.cpp)
+ament_target_dependencies(direction_service_node rclcpp sensor_msgs)
 
 # To link to interfaces defined and generated in the same package:
 
 # Get the typesupport target name
-# rosidl_get_typesupport_target(typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+rosidl_get_typesupport_target(typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
 # Link against the generated interface library
-# NOTE: No keywords (PRIVATE, PUBLIC) or all keywords (can't mix)
-# target_link_libraries(direction_service_node ${typesupport_target})
+# NOTE: CMake, no keywords (PRIVATE, PUBLIC) or all keywords (can't mix)
+target_link_libraries(direction_service_node ${typesupport_target})
 
 install(TARGETS
 	${PROJECT_NAME}_node
     laser_scan_subscriber_node
 	find_direction_buffers_node
-	# direction_service_node
+	direction_service_node
 	DESTINATION lib/${PROJECT_NAME}
 )
 
