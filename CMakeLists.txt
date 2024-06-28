@@ -45,6 +45,9 @@ ament_target_dependencies(find_direction_buffers_node rclcpp sensor_msgs)
 add_executable(direction_service_node src/direction_service.cpp)
 ament_target_dependencies(direction_service_node rclcpp sensor_msgs)
 
+add_executable(test_service_node src/test_service.cpp)
+ament_target_dependencies(test_service_node rclcpp sensor_msgs)
+
 # To link to interfaces defined and generated in the same package:
 
 # Get the typesupport target name
@@ -53,12 +56,14 @@ rosidl_get_typesupport_target(typesupport_target ${PROJECT_NAME} "rosidl_typesup
 # Link against the generated interface library
 # NOTE: CMake, no keywords (PRIVATE, PUBLIC) or all keywords (can't mix)
 target_link_libraries(direction_service_node ${typesupport_target})
+target_link_libraries(test_service_node ${typesupport_target})
 
 install(TARGETS
 	${PROJECT_NAME}_node
     laser_scan_subscriber_node
 	find_direction_buffers_node
 	direction_service_node
+	test_service_node
 	DESTINATION lib/${PROJECT_NAME}
 )
 

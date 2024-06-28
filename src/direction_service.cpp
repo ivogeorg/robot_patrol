@@ -40,7 +40,7 @@ private:
     if (!laser_scanner_parametrized_)
       parametrize_laser_scanner(scan_data);
 
-    response->direction = "forward";
+    response->direction = "right";
 
     //     auto message = geometry_msgs::msg::Twist();
 
