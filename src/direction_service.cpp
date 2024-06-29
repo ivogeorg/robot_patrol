@@ -76,6 +76,11 @@ private:
   // utilities
   void parametrize_laser_scanner(LaserScan &scan_data) {
     double angle_increment = scan_data.angle_increment;
+
+    // DEBUG
+    RCLCPP_DEBUG(this->get_logger(), "angle_increment = %f", angle_increment);
+    // end DEBUG
+
     // right:
     // Relative to front_start [-pi/2.0, -pi/6.0]
     // Relative to ranges array index 0 angle [pi/2.0, 5.0 * pi/6.0]
@@ -83,7 +88,12 @@ private:
     right_end = static_cast<int>(lround((5.0 * PI_ / 6.0) / angle_increment));
 
     // DEBUG
+    RCLCPP_DEBUG(this->get_logger(), "right_start double = %f",
+                 (PI_ / 2.0) / angle_increment);
     RCLCPP_DEBUG(this->get_logger(), "right_start = %d", right_start);
+
+    RCLCPP_DEBUG(this->get_logger(), "right_end double = %f",
+                 (5.0 * PI_ / 6.0) / angle_increment);
     RCLCPP_DEBUG(this->get_logger(), "right_end = %d", right_end);
     // end DEBUG
 
