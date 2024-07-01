@@ -26,6 +26,7 @@ private:
   rclcpp::TimerBase::SharedPtr service_call_timer_;
 
   LaserScan laser_scan_data_;
+  std::shared_future<GetDirection::Response::SharedPtr> result_future_;
 
   // TODO:
   // 1. Create init()
@@ -43,18 +44,19 @@ private:
   void service_call() {
     auto request = std::make_shared<GetDirection::Request>(laser_scan_data_);
 
-    auto result_future = client_->async_send_request(
+    result_future_ = client_->async_send_request(
         request, std::bind(&ServiceTest::velocity_callback, this,
                            std::placeholders::_1));
   }
 
   // callbacks
   void laser_scan_callback(const LaserScan::SharedPtr data) {
-    //   RCLCPP_DEBUG(this->get_logger(), "Laser scan callback");
+    RCLCPP_DEBUG(this->get_logger(), "Laser scan callback");
     laser_scan_data_ = *data;
   }
 
   void velocity_callback(rclcpp::Client<GetDirection>::SharedFuture future) {
+//   void velocity_callback(rclcpp::Client<GetDirection::Response::SharedPtr>::SharedFuture future) {
     auto status = future.wait_for(1s);
     if (status != std::future_status::ready) {
       RCLCPP_INFO(this->get_logger(), "Service '%s' in progress...",
@@ -63,23 +65,26 @@ private:
       RCLCPP_INFO(this->get_logger(), "Service '%s' response",
                   direction_service_name_.c_str());
     }
-    std::string dir = future.get();
-    RCLCPP_INFO(this->get_logger(), "Direction '%s'", dir.c_str());
+    auto result = result_future_.get();
+    RCLCPP_INFO(this->get_logger(), "Direction '%s'",
+                result->direction.c_str());
   }
 
   // utilities
   void wait_for_laser_scan_publisher() {
-    while (this->wait_for_publisher(laser_scan_topic_, 10s)) {
+    // ROS 2 does't have an equivalent to wait_for_publisher
+    // this is one way to solve the problem
+    while (this->count_publishers("scan") == 0) {
       if (!rclcpp::ok()) {
         RCLCPP_ERROR(
             this->get_logger(),
-            "Client interrupted while waiting for '%s' publisher. Terminating...",
+            "Interrupted while waiting for '%s' topic publisher. Exiting.",
             laser_scan_topic_.c_str());
-        return 1;
-      } else {
-        RCLCPP_INFO(this->get_logger(), "Waiting for '%s' publisher...",
-                    laser_scan_topic_.c_str());
+        return 0;
       }
+      RCLCPP_INFO(this->get_logger(),
+                  "'%s' topic publisher not available, waiting...",
+                  laser_scan_topic_.c_str());
     }
   }
 
@@ -98,6 +103,7 @@ private:
     }
   }
 
+  // call the service at a frequency of 10 Hz
   void start() {
     service_call_timer_ = this->create_wall_timer(
         100ms, std::bind(&ServiceTest::service_call, this));
@@ -121,7 +127,7 @@ public:
   void init() {
     wait_for_laser_scan_publisher();
     wait_for_direction_server();
-    start();
+    start(); // timer for service call
   }
 };
 
