@@ -28,7 +28,7 @@ private:
   const double PI_ = 3.14159265359;
   // arc indices
   int right_start, right_end;
-  int front_start, front_end;
+  int forward_start, forward_end;
   int left_start, left_end;
 
   // callbacks
@@ -56,20 +56,44 @@ private:
     // end DEBUG
 
     // right:
-    // Relative to front_start [-pi/2.0, -pi/6.0]
+    // Relative to forward_start [-pi/2.0, -pi/6.0]
     // Relative to ranges array index 0 angle [pi/2.0, 5.0 * pi/6.0]
     right_start = static_cast<int>(lround((PI_ / 2.0) / angle_increment));
     right_end = static_cast<int>(lround((5.0 * PI_ / 6.0) / angle_increment));
 
     // DEBUG
-    RCLCPP_DEBUG(this->get_logger(), "right_start double = %f",
-                 (PI_ / 2.0) / angle_increment);
     RCLCPP_DEBUG(this->get_logger(), "right_start = %d", right_start);
-
-    RCLCPP_DEBUG(this->get_logger(), "right_end double = %f",
-                 (5.0 * PI_ / 6.0) / angle_increment);
     RCLCPP_DEBUG(this->get_logger(), "right_end = %d", right_end);
     // end DEBUG
+
+    // forward:
+    // Relative to forward_start [0.0, pi/3.0]
+    // Relative to ranges array index 0 angle [5.0 * pi/6.0, 7.0 * pi/6.0]
+    forward_start = right_end + 1;
+    forward_end = static_cast<int>(lround((7.0 * PI_ / 6.0) / angle_increment));
+
+    // DEBUG
+    RCLCPP_DEBUG(this->get_logger(), "forward_start = %d", forward_start);
+    RCLCPP_DEBUG(this->get_logger(), "forward_end = %d", forward_end);
+    // end DEBUG
+
+    // left:
+    // Relative to forward_start [pi/3.0, 2.0 *pi/3.0]
+    // Relative to ranges array index 0 angle [7.0 * pi/6.0, 3.0 * pi/2.0]
+    left_start = forward_end + 1;
+    left_end = static_cast<int>(lround((3.0 * PI_ / 2.0) / angle_increment));
+
+    // DEBUG
+    RCLCPP_DEBUG(this->get_logger(), "left_start = %d", left_start);
+    RCLCPP_DEBUG(this->get_logger(), "left_end = %d", left_end);
+    // end DEBUG
+
+    // DEBUG
+    RCLCPP_DEBUG(this->get_logger(), "right_end - right_start = %d", right_end - right_start);
+    RCLCPP_DEBUG(this->get_logger(), "forward_end - forward_start = %d", forward_end - forward_start);
+    RCLCPP_DEBUG(this->get_logger(), "left_end - left_start = %d", left_end - left_start);
+    // end DEBUG
+
 
     laser_scanner_parametrized_ = true;
   }
