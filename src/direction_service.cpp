@@ -40,37 +40,11 @@ private:
     if (!laser_scanner_parametrized_)
       parametrize_laser_scanner(scan_data);
 
-    response->direction = "right";
 
-    //     auto message = geometry_msgs::msg::Twist();
 
-    //     if (request->move == "Turn Right") {
-    //       Send velocities to move the robot to the right
-    //       message.linear.x = 0.2;
-    //       message.angular.z = -0.2;
-    //       publisher_->publish(message);
+    // TODO: based on the scan data: "left", "right", "forward"
 
-    //       // Set the response success variable to true
-    //       response->success = true;
-    //     } else if (request->move == "Turn Left") {
-    //       // Send velocities to stop the robot
-    //       message.linear.x = 0.2;
-    //       message.angular.z = 0.2;
-    //       publisher_->publish(message);
-
-    //       // Set the response success variable to false
-    //       response->success = true;
-    //     } else if (request->move == "Stop") {
-    //       // Send velocities to stop the robot
-    //       message.linear.x = 0.0;
-    //       message.angular.z = 0.0;
-    //       publisher_->publish(message);
-
-    //       // Set the response success variable to false
-    //       response->success = true;
-    //     } else {
-    //       response->success = false;
-    //     }
+    response->direction = "left";
   }
 
   // utilities

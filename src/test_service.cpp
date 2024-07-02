@@ -28,40 +28,29 @@ private:
   rclcpp::TimerBase::SharedPtr service_call_timer_;
 
   LaserScan laser_scan_data_;
-//   std::shared_future<GetDirection::Response::SharedPtr> result_future_;
-
-  // TODO:
-  // 1. Create init()
-  // 2. Create service_call()
-  // 3. In service_call():
-  //    1. Create a request for GetDirection, initializing with laser_scan_data_
-  //    2. Send request and bind velocity_callback()
-  // 4. In init():
-  //    1. Wait for scan data publisher
-  //    2. Wait for direction service
-  //    3. Start service_call_timer_, binding service_call()
-  // 5. In velocity_callback(), wait for the response and print "direction"
-  // 6. Call init() from main
+  bool got_data = false;
 
   void service_call() {
-    auto request = std::make_shared<GetDirection::Request>(/*laser_scan_data_*/);
-    request->laser_data = laser_scan_data_;
+    if (!got_data) {
+      RCLCPP_INFO(this->get_logger(), "No laser data yet...");
+    } else {
+      auto request = std::make_shared<GetDirection::Request>();
+      request->laser_data = laser_scan_data_;
 
-
-    // result_future_ = client_->async_send_request(
-    auto result_future = client_->async_send_request(
-        request, std::bind(&ServiceTest::velocity_callback, this,
-                           std::placeholders::_1));
+      auto result_future = client_->async_send_request(
+          request, std::bind(&ServiceTest::velocity_callback, this,
+                             std::placeholders::_1));
+    }
   }
 
   // callbacks
   void laser_scan_callback(const LaserScan::SharedPtr data) {
     RCLCPP_DEBUG(this->get_logger(), "Laser scan callback");
     laser_scan_data_ = *data;
+    got_data = true;
   }
 
   void velocity_callback(rclcpp::Client<GetDirection>::SharedFuture future) {
-//   void velocity_callback(rclcpp::Client<GetDirection::Response::SharedPtr>::SharedFuture future) {
     auto status = future.wait_for(1s);
     if (status != std::future_status::ready) {
       RCLCPP_INFO(this->get_logger(), "Service '%s' in progress...",
@@ -69,13 +58,10 @@ private:
     } else {
       RCLCPP_INFO(this->get_logger(), "Service '%s' response",
                   direction_service_name_.c_str());
+      auto result = future.get();
+      RCLCPP_INFO(this->get_logger(), "Direction '%s'",
+                  result->direction.c_str());
     }
-
-    // TODO: Recover the direction from the response
-
-    // auto result = result_future_.get();
-    // RCLCPP_INFO(this->get_logger(), "Direction '%s'",
-    //             result->direction.c_str());
   }
 
   // utilities
@@ -126,10 +112,6 @@ public:
 
     direction_service_name_ = "direction_service";
     client_ = this->create_client<GetDirection>(direction_service_name_);
-
-    // TODO: bind velocity_callback
-    // service_call_timer_ = this->create_wall_timer(
-    //     1s, std::bind(&ServiceTest::service_call_timer_callback, this));
   }
 
   void init() {
