@@ -6,11 +6,13 @@
 
 #include <chrono>
 #include <cstdlib>
+#include <functional>
 #include <future>
 #include <memory>
 #include <string>
 
 using namespace std::chrono_literals;
+using std::placeholders::_1;
 
 using GetDirection = robot_patrol::srv::GetDirection;
 using LaserScan = sensor_msgs::msg::LaserScan;
@@ -26,7 +28,7 @@ private:
   rclcpp::TimerBase::SharedPtr service_call_timer_;
 
   LaserScan laser_scan_data_;
-  std::shared_future<GetDirection::Response::SharedPtr> result_future_;
+//   std::shared_future<GetDirection::Response::SharedPtr> result_future_;
 
   // TODO:
   // 1. Create init()
@@ -42,9 +44,12 @@ private:
   // 6. Call init() from main
 
   void service_call() {
-    auto request = std::make_shared<GetDirection::Request>(laser_scan_data_);
+    auto request = std::make_shared<GetDirection::Request>(/*laser_scan_data_*/);
+    request->laser_data = laser_scan_data_;
 
-    result_future_ = client_->async_send_request(
+
+    // result_future_ = client_->async_send_request(
+    auto result_future = client_->async_send_request(
         request, std::bind(&ServiceTest::velocity_callback, this,
                            std::placeholders::_1));
   }
@@ -65,9 +70,12 @@ private:
       RCLCPP_INFO(this->get_logger(), "Service '%s' response",
                   direction_service_name_.c_str());
     }
-    auto result = result_future_.get();
-    RCLCPP_INFO(this->get_logger(), "Direction '%s'",
-                result->direction.c_str());
+
+    // TODO: Recover the direction from the response
+
+    // auto result = result_future_.get();
+    // RCLCPP_INFO(this->get_logger(), "Direction '%s'",
+    //             result->direction.c_str());
   }
 
   // utilities
@@ -80,7 +88,7 @@ private:
             this->get_logger(),
             "Interrupted while waiting for '%s' topic publisher. Exiting.",
             laser_scan_topic_.c_str());
-        return 0;
+        return;
       }
       RCLCPP_INFO(this->get_logger(),
                   "'%s' topic publisher not available, waiting...",
@@ -95,7 +103,7 @@ private:
             this->get_logger(),
             "Client interrupted while waiting for '%s' server. Terminating...",
             direction_service_name_.c_str());
-        return 1;
+        return;
       } else {
         RCLCPP_INFO(this->get_logger(), "Waiting for '%s' server...",
                     direction_service_name_.c_str());
@@ -111,12 +119,12 @@ private:
 
 public:
   ServiceTest() : Node("service_test_node") {
-    laser_scan_topic_{"scan"};
+    laser_scan_topic_ = "scan";
     scan_sub_ = this->create_subscription<LaserScan>(
         laser_scan_topic_, 10,
         std::bind(&ServiceTest::laser_scan_callback, this, _1));
 
-    direction_service_name_{"direction_service"};
+    direction_service_name_ = "direction_service";
     client_ = this->create_client<GetDirection>(direction_service_name_);
 
     // TODO: bind velocity_callback
@@ -136,7 +144,7 @@ int main(int argc, char *argv[]) {
 
   auto service_client = std::make_shared<ServiceTest>();
 
-  service_client.init();
+  service_client->init();
 
   rclcpp::spin(service_client);
   rclcpp::shutdown();
