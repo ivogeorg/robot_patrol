@@ -30,7 +30,7 @@ private:
   const double PI_ = 3.14159265359;
   // arc indices
   int right_start, right_end;
-  int forward_start, forward_end;
+  int front_start, front_end;
   int left_start, left_end;
 
   // callbacks
@@ -43,8 +43,8 @@ private:
     // RCLCPP_INFO(this->get_logger(), "(direction_callback) angle_increment =
     // %f",
     //             scan_data.angle_increment);
-    RCLCPP_INFO(this->get_logger(), "(direction_callback) range(330) = %f",
-                scan_data.ranges[330]);
+    // RCLCPP_INFO(this->get_logger(), "(direction_callback) range(330) = %f",
+    //             scan_data.ranges[330]);
     // end DEBUG
 
     if (!laser_scanner_parametrized_)
@@ -58,7 +58,7 @@ private:
       if (!std::isinf(scan_data.ranges[i]))
         total_dist_sec_right += scan_data.ranges[i];
 
-    for (int i = forward_start; i <= forward_end; ++i)
+    for (int i = front_start; i <= front_end; ++i)
       if (!std::isinf(scan_data.ranges[i]))
         total_dist_sec_front += scan_data.ranges[i];
 
@@ -67,9 +67,9 @@ private:
         total_dist_sec_left += scan_data.ranges[i];
 
     // DEBUG
-    RCLCPP_INFO(this->get_logger(), "right: %f, forward: %f, left: %f",
-                total_dist_sec_right, total_dist_sec_front,
-                total_dist_sec_left);
+    // RCLCPP_INFO(this->get_logger(), "right: %f, forward: %f, left: %f",
+    //             total_dist_sec_right, total_dist_sec_front,
+    //             total_dist_sec_left);
     // end DEBUG
 
     std::vector<std::pair<std::string, double>> v;
@@ -86,8 +86,8 @@ private:
     response->direction = v[0].first;
 
     // DEBUG
-    RCLCPP_INFO(this->get_logger(), "direction: %s",
-                response->direction.c_str());
+    // RCLCPP_INFO(this->get_logger(), "direction: %s",
+    //             response->direction.c_str());
     // end DEBUG
   }
 
@@ -99,33 +99,63 @@ private:
     RCLCPP_DEBUG(this->get_logger(), "angle_increment = %f", angle_increment);
     // end DEBUG
 
-    // right:
-    // Relative to forward_start [-pi/2.0, -pi/6.0]
-    // Relative to ranges array index 0 angle [pi/2.0, 5.0 * pi/6.0]
-    right_start = static_cast<int>(lround((PI_ / 2.0) / angle_increment));
-    right_end = static_cast<int>(lround((5.0 * PI_ / 6.0) / angle_increment));
+    int thirty_deg_indices = static_cast<int>((PI_ / 6.0) / angle_increment);
+
+    // DEBUG
+    RCLCPP_DEBUG(this->get_logger(), "thirty_deg_indices = %d", thirty_deg_indices);
+    // end DEBUG
+
+    double front_center_double = PI_ / angle_increment;
+    int front_center_ix = static_cast<int>(lround(front_center_double));
+
+    // DEBUG
+    RCLCPP_DEBUG(this->get_logger(), "front_center_double = %f", front_center_double);
+    RCLCPP_DEBUG(this->get_logger(), "front_center_ix = %d", front_center_ix);
+    // end DEBUG
+
+    // to ensure equal arc lengths (in indices)
+    // start with front, then extend to right and left
+    // the length of front
+    front_start = front_center_ix - thirty_deg_indices - 1;
+    front_end = front_center_ix + thirty_deg_indices;
+    int sixty_deg_indices = front_end - front_start - 1;
+
+    right_end = front_start - 1;
+    right_start = right_end - sixty_deg_indices - 1;
+
+    left_start = front_end + 1;
+    left_end = left_start + sixty_deg_indices + 1;
+
+
+
+
+    // // right:
+    // // Relative to front_start [-pi/2.0, -pi/6.0]
+    // // Relative to ranges array index 0 angle [pi/2.0, 5.0 * pi/6.0]
+    // right_start = static_cast<int>(lround((PI_ / 2.0) / angle_increment));
+    // right_end = static_cast<int>(lround((5.0 * PI_ / 6.0) / angle_increment));
 
     // DEBUG
     RCLCPP_DEBUG(this->get_logger(), "right_start = %d", right_start);
     RCLCPP_DEBUG(this->get_logger(), "right_end = %d", right_end);
     // end DEBUG
 
-    // forward:
-    // Relative to forward_start [0.0, pi/3.0]
-    // Relative to ranges array index 0 angle [5.0 * pi/6.0, 7.0 * pi/6.0]
-    forward_start = right_end + 1;
-    forward_end = static_cast<int>(lround((7.0 * PI_ / 6.0) / angle_increment));
+    // // forward:
+    // // Relative to front_start [0.0, pi/3.0]
+    // // Relative to ranges array index 0 angle [5.0 * pi/6.0, 7.0 * pi/6.0]
+    // front_start = right_end + 1;
+    // front_end = static_cast<int>(lround((7.0 * PI_ / 6.0) / angle_increment));
 
     // DEBUG
-    RCLCPP_DEBUG(this->get_logger(), "forward_start = %d", forward_start);
-    RCLCPP_DEBUG(this->get_logger(), "forward_end = %d", forward_end);
+    RCLCPP_DEBUG(this->get_logger(), "front_start = %d", front_start);
+    RCLCPP_DEBUG(this->get_logger(), "front_end = %d", front_end);
     // end DEBUG
 
-    // left:
-    // Relative to forward_start [pi/3.0, 2.0 *pi/3.0]
-    // Relative to ranges array index 0 angle [7.0 * pi/6.0, 3.0 * pi/2.0]
-    left_start = forward_end + 1;
-    left_end = static_cast<int>(lround((3.0 * PI_ / 2.0) / angle_increment));
+    // // left:
+    // // Relative to front_start [pi/3.0, 2.0 *pi/3.0]
+    // // Relative to ranges array index 0 angle [7.0 * pi/6.0, 3.0 * pi/2.0]
+    // left_start = front_end + 1;
+    // left_end = static_cast<int>(lround((3.0 * PI_ / 2.0) / angle_increment));
 
     // DEBUG
     RCLCPP_DEBUG(this->get_logger(), "left_start = %d", left_start);
@@ -133,12 +163,13 @@ private:
     // end DEBUG
 
     // DEBUG
-    RCLCPP_DEBUG(this->get_logger(), "right_end - right_start = %d",
-                 right_end - right_start);
-    RCLCPP_DEBUG(this->get_logger(), "forward_end - forward_start = %d",
-                 forward_end - forward_start);
-    RCLCPP_DEBUG(this->get_logger(), "left_end - left_start = %d",
-                 left_end - left_start);
+    // inclusive counting, hence the -1
+    RCLCPP_DEBUG(this->get_logger(), "right_end - right_start - 1 = %d",
+                 right_end - right_start - 1);
+    RCLCPP_DEBUG(this->get_logger(), "front_end - front_start - 1 = %d",
+                 front_end - front_start - 1);
+    RCLCPP_DEBUG(this->get_logger(), "left_end - left_start - 1 = %d",
+                 left_end - left_start - 1);
     // end DEBUG
 
     laser_scanner_parametrized_ = true;
