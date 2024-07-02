@@ -59,8 +59,30 @@ A turtlebot3 patrolling the simulated and real robot pen/polygon. Patrolling mea
    6. Despite algorithm (3), the robot had a problem seeing one of the signs and pushed it out toward the wall. It did identify all other obstacles and stayed away from them. It also successfully identified oscillation between two directions in the 180-deg span, both with obstacles, and extricated itself by backing up and extending the direction search to the full 360-deg circular array of the scan data.
 2. Checkpoint 6 - Part 1 (ROS 2 Services)
    1. Running
-   2. Screenshots
-   3. Implementation notes
+      1. Direction service test (in 3 terminal windows):
+         1. Gazebo simulator
+            ```
+            source ~/simulation_ws/install/setup.bash
+            ros2 launch turtlebot3_gazebo main_turtlebot3_lab.launch.xml
+            ```
+         2. `/cmd_vel` for moving in circles
+            ```
+            ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.05, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.3}}"
+            ```
+         3. Direction service
+            ```
+            cd ~/ros2_ws
+            source install/setup.bash
+            ros2 launch robot_patrol start_direction_service.launch.py
+            ```
+         4. Service testing
+            ```
+            cd ~/ros2_ws
+            source install/setup.bash
+            ros2 launch robot_patrol start_test_service.launch.py
+            ```
+   3. Screenshots
+   4. Implementation notes
       1. For custom messages that are (to be) generated in the same package where they will be used in source code, the following need to be added to the `CMakeLists.txt` file:
          1. Explicit DEPENDENCIES line for the base message(s) used to construct the custom interface (in this case `sensor_msgs` for `sensor_msgs/LaserScan`):
             ```
