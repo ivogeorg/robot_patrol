@@ -3,6 +3,8 @@
 #include "robot_patrol/srv/get_direction.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 
+#include <string>
+
 // #include <memory>
 
 using GetDirection = robot_patrol::srv::GetDirection;
@@ -37,14 +39,56 @@ private:
                      const std::shared_ptr<GetDirection::Response> response) {
     LaserScan scan_data = request->laser_data;
 
+    // DEBUG
+    // RCLCPP_INFO(this->get_logger(), "(direction_callback) angle_increment =
+    // %f",
+    //             scan_data.angle_increment);
+    RCLCPP_INFO(this->get_logger(), "(direction_callback) range(330) = %f",
+                scan_data.ranges[330]);
+    // end DEBUG
+
     if (!laser_scanner_parametrized_)
       parametrize_laser_scanner(scan_data);
 
+    double total_dist_sec_right = 0.0;
+    double total_dist_sec_front = 0.0;
+    double total_dist_sec_left = 0.0;
 
+    for (int i = right_start; i <= right_end; ++i)
+      if (!std::isinf(scan_data.ranges[i]))
+        total_dist_sec_right += scan_data.ranges[i];
 
-    // TODO: based on the scan data: "left", "right", "forward"
+    for (int i = forward_start; i <= forward_end; ++i)
+      if (!std::isinf(scan_data.ranges[i]))
+        total_dist_sec_front += scan_data.ranges[i];
 
-    response->direction = "left";
+    for (int i = left_start; i <= left_end; ++i)
+      if (!std::isinf(scan_data.ranges[i]))
+        total_dist_sec_left += scan_data.ranges[i];
+
+    // DEBUG
+    RCLCPP_INFO(this->get_logger(), "right: %f, forward: %f, left: %f",
+                total_dist_sec_right, total_dist_sec_front,
+                total_dist_sec_left);
+    // end DEBUG
+
+    std::vector<std::pair<std::string, double>> v;
+    v.push_back(std::make_pair("right", total_dist_sec_right));
+    v.push_back(std::make_pair("forward", total_dist_sec_front));
+    v.push_back(std::make_pair("left", total_dist_sec_left));
+
+    std::sort(v.begin(), v.end(),
+              [](const std::pair<std::string, double> &a,
+                 const std::pair<std::string, double> &b) {
+                return a.second > b.second;
+              });
+
+    response->direction = v[0].first;
+
+    // DEBUG
+    RCLCPP_INFO(this->get_logger(), "direction: %s",
+                response->direction.c_str());
+    // end DEBUG
   }
 
   // utilities
@@ -89,11 +133,13 @@ private:
     // end DEBUG
 
     // DEBUG
-    RCLCPP_DEBUG(this->get_logger(), "right_end - right_start = %d", right_end - right_start);
-    RCLCPP_DEBUG(this->get_logger(), "forward_end - forward_start = %d", forward_end - forward_start);
-    RCLCPP_DEBUG(this->get_logger(), "left_end - left_start = %d", left_end - left_start);
+    RCLCPP_DEBUG(this->get_logger(), "right_end - right_start = %d",
+                 right_end - right_start);
+    RCLCPP_DEBUG(this->get_logger(), "forward_end - forward_start = %d",
+                 forward_end - forward_start);
+    RCLCPP_DEBUG(this->get_logger(), "left_end - left_start = %d",
+                 left_end - left_start);
     // end DEBUG
-
 
     laser_scanner_parametrized_ = true;
   }
