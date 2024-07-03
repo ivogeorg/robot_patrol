@@ -10,6 +10,7 @@ message(STATUS "Include directories: ${CMAKE_CXX_INCLUDE_DIRS}")
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
@@ -54,7 +55,7 @@ add_executable(test_service_node src/test_service.cpp)
 ament_target_dependencies(test_service_node rclcpp sensor_msgs)
 
 add_executable(go_to_pose_action_node src/go_to_pose_action.cpp)
-ament_target_dependencies(go_to_pose_action_node rclcpp geometry_msgs nav_msgs)
+ament_target_dependencies(go_to_pose_action_node rclcpp rclcpp_action geometry_msgs nav_msgs)
 
 # To link to interfaces defined and generated in the same package:
 
