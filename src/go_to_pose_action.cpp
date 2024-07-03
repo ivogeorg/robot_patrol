@@ -2,6 +2,7 @@
 #include <memory>
 #include <thread>
 
+#include "nav_msgs/msg/detail/odometry__struct.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 
@@ -37,6 +38,7 @@ public:
   using GoToPose = robot_patrol::action::GoToPose;
   using GoalHandlePose = rclcpp_action::ServerGoalHandle<GoToPose>;
   using Twist = geometry_msgs::msg::Twist;
+  using Odometry = nav_msgs::msg::Odometry;
 
   explicit GoToPoseActionServerNode(
       const rclcpp::NodeOptions &options = rclcpp::NodeOptions())
@@ -51,11 +53,17 @@ public:
         std::bind(&GoToPoseActionServerNode::handle_accepted, this, _1));
 
     publisher_ = this->create_publisher<Twist>("cmd_vel", 10);
+    subscriber_ = this->create_subscription<Odometry>(
+        "odom", 10, std::bind(&GoToPoseActionServerNode::odom_cb, this, _1));
   }
 
 private:
   rclcpp_action::Server<GoToPose>::SharedPtr action_server_;
   rclcpp::Publisher<Twist>::SharedPtr publisher_;
+  rclcpp::Subscription<Odometry>::SharedPtr subscriber_;
+  Odometry odom_data_;
+
+  void odom_cb(const Odometry::SharedPtr msg) { odom_data_ = *msg; }
 
   rclcpp_action::GoalResponse
   handle_goal(const rclcpp_action::GoalUUID &uuid,
