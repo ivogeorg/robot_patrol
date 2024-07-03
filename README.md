@@ -81,6 +81,12 @@ A turtlebot3 patrolling the simulated and real robot pen/polygon. Patrolling mea
             source install/setup.bash
             ros2 launch robot_patrol start_test_service.launch.py
             ```
+      2. Patrol with service (Gazebo simulator omitted):
+         ```
+         cd ~/ros2_ws
+         source install/setup.bash
+         ros2 launch robot_patrol main.launch.py
+         ```
    3. Screenshots
    4. Implementation notes
       1. For custom messages that are (to be) generated in the same package where they will be used in source code, the following need to be added to the `CMakeLists.txt` file:
