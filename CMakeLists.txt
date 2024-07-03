@@ -36,6 +36,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 add_executable(${PROJECT_NAME}_node src/patrol.cpp)
 ament_target_dependencies(${PROJECT_NAME}_node rclcpp geometry_msgs sensor_msgs nav_msgs)
 
+add_executable(${PROJECT_NAME}_with_service_node src/patrol_with_service.cpp)
+ament_target_dependencies(${PROJECT_NAME}_with_service_node rclcpp geometry_msgs sensor_msgs nav_msgs)
+
 add_executable(laser_scan_subscriber_node src/laser_scan_subscriber.cpp)
 ament_target_dependencies(laser_scan_subscriber_node rclcpp sensor_msgs)
 
@@ -60,6 +63,7 @@ target_link_libraries(test_service_node ${typesupport_target})
 
 install(TARGETS
 	${PROJECT_NAME}_node
+	${PROJECT_NAME}_with_service_node
     laser_scan_subscriber_node
 	find_direction_buffers_node
 	direction_service_node

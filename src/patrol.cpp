@@ -37,7 +37,7 @@ public:
   ~Patrol() = default;
 
 private:
-  sensor_msgs::msg::LaserScan laser_scan_data_;
+  sensor_msgs::msg::LaserScan last_laser_;
   nav_msgs::msg::Odometry odom_data_;
   geometry_msgs::msg::Twist cmd_vel_msg_;
 
@@ -511,25 +511,25 @@ void Patrol::velocity_callback() {
 void Patrol::laser_scan_callback(
     const sensor_msgs::msg::LaserScan::SharedPtr msg) {
   //   RCLCPP_DEBUG(this->get_logger(), "Laser scan callback");
-  laser_scan_data_ = *msg;
+  last_laser_ = *msg;
 
   // Clean up stray inf
-  int size = static_cast<int>(laser_scan_data_.ranges.size());
+  int size = static_cast<int>(last_laser_.ranges.size());
   double one, two, tri;
   int k;                           // for circular array wraparound
   for (int i = 0; i < size; ++i) { // [0, size-1]
-    one = laser_scan_data_.ranges[i];
+    one = last_laser_.ranges[i];
     k = (i + 1) % size;
-    two = laser_scan_data_.ranges[k]; // prevent out-of-bound access
-    tri = laser_scan_data_.ranges[k + 1];
+    two = last_laser_.ranges[k]; // prevent out-of-bound access
+    tri = last_laser_.ranges[k + 1];
     if (!std::isinf(one) && std::isinf(two) && !std::isinf(tri))
       // assign the previous value, preserving discontinuity
-      laser_scan_data_.ranges[k] = laser_scan_data_.ranges[i];
+      last_laser_.ranges[k] = last_laser_.ranges[i];
   }
 
   // DEBUG
   //   int inf_ct = 0;
-  //   for (auto &d : laser_scan_data_.ranges)
+  //   for (auto &d : last_laser_.ranges)
   //     if (std::isinf(d))
   //       ++inf_ct;
   //   RCLCPP_DEBUG(this->get_logger(),
@@ -539,7 +539,7 @@ void Patrol::laser_scan_callback(
   have_laser_ = true;
 
   //   RCLCPP_DEBUG(this->get_logger(), "Distance to the left is %f",
-  //                laser_scan_data_.ranges[LEFT]);
+  //                last_laser_.ranges[LEFT]);
 }
 
 // subscriber
@@ -558,7 +558,7 @@ void Patrol::odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
 // utility functions
 void Patrol::parametrize_laser_scanner() {
   // NOTE: Assuming this function won't be called before laser scan
-  //       data is recieved, so `laser_scan_data_` is valid.
+  //       data is recieved, so `last_laser_` is valid.
   // NOTE: Assuming a 2 * pi radian (360 degree) laser scanner.
   //            __front__
   //          |||   ^   |||
@@ -574,10 +574,10 @@ void Patrol::parametrize_laser_scanner() {
   //       above directions are only approximated by the indices.
 
   // Initialize from the local geometry_msgs/msg/LaserScan
-  RANGES_SIZE = laser_scan_data_.ranges.size();
-  RANGE_MIN = laser_scan_data_.range_min;
-  RANGE_MAX = laser_scan_data_.range_max;
-  ANGLE_INCREMENT = laser_scan_data_.angle_increment;
+  RANGES_SIZE = last_laser_.ranges.size();
+  RANGE_MIN = last_laser_.range_min;
+  RANGE_MAX = last_laser_.range_max;
+  ANGLE_INCREMENT = last_laser_.angle_increment;
   RCLCPP_INFO(this->get_logger(), "RANGES_SIZE = %d", RANGES_SIZE);
   RCLCPP_INFO(this->get_logger(), "RANGE_MIN = %f", RANGE_MIN);
   RCLCPP_INFO(this->get_logger(), "RANGE_MAX = %f", RANGE_MAX);
@@ -653,8 +653,8 @@ Patrol::obstacle_in_range(int from, int to, int ranges_size, double dist) {
   // while it may still have values from several callbacks,
   // it is likely less inconsistent than the variable which
   // each callback assigns
-  std::vector<double> ranges(laser_scan_data_.ranges.begin(),
-                             laser_scan_data_.ranges.end());
+  std::vector<double> ranges(last_laser_.ranges.begin(),
+                             last_laser_.ranges.end());
 
   int num_inf = 0;
   bool is_obstacle = false;
@@ -678,8 +678,8 @@ Patrol::obstacle_in_range(int from, int to, int ranges_size, double dist) {
 void Patrol::find_direction_heuristic(bool extended, DirSafetyBias dir_bias,
                                       DirPref dir_pref) {
   RCLCPP_INFO(this->get_logger(), "Looking for safest direction");
-  std::vector<double> ranges(laser_scan_data_.ranges.begin(),
-                             laser_scan_data_.ranges.end());
+  std::vector<double> ranges(last_laser_.ranges.begin(),
+                             last_laser_.ranges.end());
 
   // 1. (optional) Extended range
   double right = (extended) ? RIGHT_EXTEND : RIGHT;
@@ -791,7 +791,7 @@ void Patrol::find_direction_heuristic(bool extended, DirSafetyBias dir_bias,
     //     avg_full));
 
     // favor larger angles
-    // (peak_index - FRONT) * laser_scan_data_.angle_increment
+    // (peak_index - FRONT) * last_laser_.angle_increment
     // v_indexed_averages.push_back(
     //     std::make_tuple(peak_index, abs((peak_index - FRONT) *
     //     ANGLE_INCREMENT),
@@ -895,8 +895,8 @@ void Patrol::find_direction_heuristic(bool extended, DirSafetyBias dir_bias,
 void Patrol::find_direction_foreground_buffers(bool extended) {
   RCLCPP_INFO(this->get_logger(), "Looking for safest direction");
 
-  std::vector<double> ranges(laser_scan_data_.ranges.begin(),
-                             laser_scan_data_.ranges.end());
+  std::vector<double> ranges(last_laser_.ranges.begin(),
+                             last_laser_.ranges.end());
 
   for (auto &r : ranges)
     if (std::isinf(r))
@@ -1180,7 +1180,7 @@ void Patrol::find_direction_arc_sums(bool extended) {
   // 1. Define ANGLE (size has to divide evenly) and INF_MASK
   const int ANGLE = 20;
 
-  int size = static_cast<int>(laser_scan_data_.ranges.size());
+  int size = static_cast<int>(last_laser_.ranges.size());
 
   // 2. Divide ranges array into ANGLE arcs, sum up, and find the maximum range
   // 3. Apply 180-deg constraint or extended (full circle)
@@ -1199,8 +1199,8 @@ void Patrol::find_direction_arc_sums(bool extended) {
 
     for (int j = start_ix; j < end_ix; ++j) {
 
-      if (!std::isinf(laser_scan_data_.ranges[j])) {
-        range = laser_scan_data_.ranges[j];
+      if (!std::isinf(last_laser_.ranges[j])) {
+        range = last_laser_.ranges[j];
         if (range > longest_range) {
           longest_range = range;
           longest_range_ix = j;
@@ -1209,8 +1209,8 @@ void Patrol::find_direction_arc_sums(bool extended) {
       }
     }
     for (int k = start_ix - ANGLE; k < end_ix + ANGLE; ++k)
-      if (!std::isinf(laser_scan_data_.ranges[k]))
-        big_sum += laser_scan_data_.ranges[k];
+      if (!std::isinf(last_laser_.ranges[k]))
+        big_sum += last_laser_.ranges[k];
 
     // constrain the range angle to +/- pi when not extended
     if (extended || (!extended && longest_range_ix >= RIGHT && longest_range_ix <= LEFT)) {
@@ -1263,7 +1263,7 @@ void Patrol::find_direction_arc_sums(bool extended) {
   RCLCPP_INFO(this->get_logger(), "Arc {Ix: %d, Angle: %f}", longest_range_ix,
                (longest_range_ix - FRONT) * ANGLE_INCREMENT);
   RCLCPP_INFO(this->get_logger(), "Arc {Longest range: %f}\n",
-               laser_scan_data_.ranges[longest_range_ix]);
+               last_laser_.ranges[longest_range_ix]);
   // end DEBUG
 
   direction_ = (longest_range_ix - FRONT) * ANGLE_INCREMENT;
