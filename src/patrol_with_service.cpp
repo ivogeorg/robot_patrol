@@ -134,6 +134,8 @@ void Patrol::init() {
 void Patrol::velocity_callback(
     rclcpp::Client<GetDirection>::SharedFuture future) {
 
+  std::string direction;
+
   auto status = future.wait_for(1s);
   if (status != std::future_status::ready) {
     RCLCPP_INFO(this->get_logger(), "Service '%s' in progress...",
@@ -142,16 +144,23 @@ void Patrol::velocity_callback(
     RCLCPP_INFO(this->get_logger(), "Service '%s' response",
                 direction_service_name_.c_str());
     auto result = future.get();
-    RCLCPP_INFO(this->get_logger(), "Direction '%s'",
-                result->direction.c_str());
+    direction = result->direction;
+    RCLCPP_INFO(this->get_logger(), "Direction '%s'", direction.c_str());
   }
 
-  // TODO: linear.x and angular.z depending on the direction result
-
-  // DEBUG
-  // just move in circles
-  cmd_vel_msg_.linear.x = 0.05;
-  cmd_vel_msg_.angular.z = -0.3;
+  if (direction == "right") {
+    cmd_vel_msg_.linear.x = 0.1;
+    cmd_vel_msg_.angular.z = -0.5;
+  } else if (direction == "left") {
+    cmd_vel_msg_.linear.x = 0.1;
+    cmd_vel_msg_.angular.z = 0.5;
+  } else if (direction == "forward") {
+    cmd_vel_msg_.linear.x = 0.1;
+    cmd_vel_msg_.angular.z = 0.0;
+  } else {
+    cmd_vel_msg_.linear.x = 0.0;
+    cmd_vel_msg_.angular.z = 0.0;
+  }
 
   // single point of publishing
   publisher_->publish(cmd_vel_msg_);
