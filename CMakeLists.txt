@@ -60,6 +60,7 @@ rosidl_get_typesupport_target(typesupport_target ${PROJECT_NAME} "rosidl_typesup
 # NOTE: CMake, no keywords (PRIVATE, PUBLIC) or all keywords (can't mix)
 target_link_libraries(direction_service_node ${typesupport_target})
 target_link_libraries(test_service_node ${typesupport_target})
+target_link_libraries(${PROJECT_NAME}_with_service_node ${typesupport_target})
 
 install(TARGETS
 	${PROJECT_NAME}_node
