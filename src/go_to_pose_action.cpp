@@ -3,6 +3,7 @@
 #include <memory>
 #include <thread>
 
+#include "geometry_msgs/msg/detail/pose2_d__struct.hpp"
 #include "nav_msgs/msg/detail/odometry__struct.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
@@ -40,6 +41,7 @@ using GoToPose = robot_patrol::action::GoToPose;
 using GoalHandlePose = rclcpp_action::ServerGoalHandle<GoToPose>;
 using Twist = geometry_msgs::msg::Twist;
 using Odometry = nav_msgs::msg::Odometry;
+using Pose2D = geometry_msgs::msg::Pose2D;
 
 class GoToPoseActionServerNode : public rclcpp::Node {
 public:
@@ -139,7 +141,11 @@ private:
   // assumes normalized angle [-pi/2.0, pi/2.0]
   // TODO: add goal_handle and result for
   // cancellation checks and feedback publishing
-  bool rotate(double goal_norm_angle_rad) {
+  enum class Frame { ROBOT, WORLD };
+  bool rotate(double goal_norm_angle_rad, Frame frame,
+              const std::shared_ptr<GoalHandlePose> goal_handle,
+              std::shared_ptr<GoToPose::Result> result,
+              std::shared_ptr<GoToPose::Feedback> feedback) {
     const double VELOCITY = 0.08;
     const double ANGULAR_TOLERANCE = 0.05;
 
@@ -153,13 +159,44 @@ private:
     // Necessary code duplication to avoid inaccuracy
     // depending on the direction of rotation.
     // Notice the condition in the while loops.
-    rclcpp::Rate rate(10); // 10 Hz
+    rclcpp::Rate rate(10);     // 10 Hz
+    const int FB_DIVISOR = 10; // 10 for 1 Hz feedback
+    int feedback_counter = 0;
     if (goal_angle > 0) {
       while (rclcpp::ok() &&
              (abs(turn_angle + ANGULAR_TOLERANCE) < abs(goal_angle))) {
-        // TODO: check for cancellation
-        // TODO: give feedback (current pos)
         vel_pub_->publish(twist_);
+
+        // check for cancellation
+        if (goal_handle->is_canceling()) {
+          // stop the robot
+          twist_.linear.x = 0.0;
+          twist_.angular.z = 0.0;
+          vel_pub_->publish(twist_);
+
+          // report cancellation
+          result->status = false;
+          goal_handle->canceled(result);
+          RCLCPP_INFO(this->get_logger(), "Goal canceled");
+
+          return false;
+        }
+
+        // send feedback
+        if (feedback_counter % FB_DIVISOR == 0) {
+            Pose2D pose;
+            pose.x = odom_data_.pose.pose.position.x;
+            pose.y = odom_data_.pose.pose.position.y;
+            pose.theta = yaw_from_quaternion(
+                odom_data_.pose.pose.orientation.x, 
+                odom_data_.pose.pose.orientation.y, 
+                odom_data_.pose.pose.orientation.z, 
+                odom_data_.pose.pose.orientation.w);
+            feedback->current_pos = pose;
+            goal_handle->publish_feedback(feedback);
+            RCLCPP_INFO(this->get_logger(), "Publish feedback");
+        }
+
         rate.sleep();
 
         double temp_yaw = yaw_rad_;
@@ -205,7 +242,10 @@ private:
   // required speed linear.x = 0.2
   // TODO: add goal_handle and result for
   // cancellation checks and feedback publishing
-  bool go_to(double goal_x_m, double goal_y_m) {
+  bool go_to(double goal_x_m, double goal_y_m,
+             const std::shared_ptr<GoalHandlePose> goal_handle,
+             std::shared_ptr<GoToPose::Result> result,
+             std::shared_ptr<GoToPose::Feedback> feedback) {
     const double VELOCITY = 0.08; // 2.0 is pretty high
     const double LINEAR_TOLERANCE = 0.05;
 
@@ -261,10 +301,12 @@ private:
               goal->goal_pos.x - odom_data_.pose.pose.position.x));
 
     // 3. Rotate toward goal
-    bool rotation_1_res = rotate(angle);
+    bool rotation_1_res =
+        rotate(angle, Frame::ROBOT, goal_handle, result, feedback);
 
     // 4. Go to pose
-    bool forward_res = go_to(goal->goal_pos.x, goal->goal_pos.y);
+    bool forward_res = go_to(goal->goal_pos.x, goal->goal_pos.y, goal_handle,
+                             result, feedback);
 
     // 5. Normalize theta
     angle = normalize_angle(goal->goal_pos.theta);
@@ -277,14 +319,21 @@ private:
     // 6. Rotate to theta
     // TODO: rotate works in robot frame, which works
     // for the first rotation, but not for the second
-    bool rotation_2_res = rotate(angle);
+    bool rotation_2_res =
+        rotate(angle, Frame::WORLD, goal_handle, result, feedback);
 
-    // TODO: check if goal is done and stop the robot
-    if (rclcpp::ok()) {
-      result->status = true; // TODO: condition on returns of motions
+    // check if goal is done and stop the robot
+    if (rclcpp::ok() && rotation_1_res && forward_res && rotation_2_res) {
+      // stop robot
+      twist_.linear.x = 0.0;
+      twist_.angular.z = 0.0;
+      vel_pub_->publish(twist_);
+
+      // report success
+      result->status = true;
       goal_handle->succeed(result);
       RCLCPP_INFO(this->get_logger(), "Goal succeeded (TODO)");
-    }
+    } // else it was cancelled in rotate or go_to
   }
 };
 
