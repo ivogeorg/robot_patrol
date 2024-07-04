@@ -134,6 +134,18 @@ void Patrol::init() {
 void Patrol::velocity_callback(
     rclcpp::Client<GetDirection>::SharedFuture future) {
 
+    // TODO
+    /***********************************
+    1. Reintroduce obstacle_in_range.
+    2. Define stages of approach, say {0.6, 0.3, 0.1}.
+    3. Use the stages of approach to modify linear and angular.
+    4. Reintroduce find_direction and use the direction service
+       to either:
+       1. Look for direction in the arc/sector returned, or
+       2. Filter found directions by the arc/sector returned.
+    5. Use the direction found to define angular.
+    ***********************************/
+
   std::string direction;
 
   auto status = future.wait_for(1s);

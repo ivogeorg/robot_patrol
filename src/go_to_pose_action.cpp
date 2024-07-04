@@ -63,7 +63,11 @@ private:
   rclcpp::Subscription<Odometry>::SharedPtr subscriber_;
   Odometry odom_data_;
 
-  void odom_cb(const Odometry::SharedPtr msg) { odom_data_ = *msg; }
+  void odom_cb(const Odometry::SharedPtr msg) {
+    RCLCPP_INFO(this->get_logger(), "Odometry callback");
+    
+    odom_data_ = *msg; 
+  }
 
   rclcpp_action::GoalResponse
   handle_goal(const rclcpp_action::GoalUUID &uuid,
@@ -104,6 +108,18 @@ private:
     rclcpp::Rate loop_rate(1);
 
     // TODO: implement
+    /**************************************
+    1. Compute the line-of-sight vector in (x, y).
+    2. Compute the angle between robot front and vector.
+    3. Rotate robot around the computed angle.
+    4. Go forward until the goal (x, y) pos is reached.
+    5. Compute the angle between robot front and goal theta.
+    6. Rotate robot around the computed angle.
+    **************************************/
+
+
+
+
   }
 };
 
