@@ -1,3 +1,4 @@
+#include <cmath>
 #include <functional>
 #include <memory>
 #include <thread>
@@ -33,6 +34,8 @@ Important: remember that the odometry is received in quaternion format. To get
 the theta value you will need to convert the quaternion into Euler angles.
 */
 
+#define PI_ 3.14159265359
+
 class GoToPoseActionServerNode : public rclcpp::Node {
 public:
   using GoToPose = robot_patrol::action::GoToPose;
@@ -52,21 +55,22 @@ public:
         std::bind(&GoToPoseActionServerNode::handle_cancel, this, _1),
         std::bind(&GoToPoseActionServerNode::handle_accepted, this, _1));
 
-    publisher_ = this->create_publisher<Twist>("cmd_vel", 10);
-    subscriber_ = this->create_subscription<Odometry>(
+    vel_pub_ = this->create_publisher<Twist>("cmd_vel", 10);
+    odom_sub_ = this->create_subscription<Odometry>(
         "odom", 10, std::bind(&GoToPoseActionServerNode::odom_cb, this, _1));
   }
 
 private:
   rclcpp_action::Server<GoToPose>::SharedPtr action_server_;
-  rclcpp::Publisher<Twist>::SharedPtr publisher_;
-  rclcpp::Subscription<Odometry>::SharedPtr subscriber_;
+  rclcpp::Publisher<Twist>::SharedPtr vel_pub_;
+  rclcpp::Subscription<Odometry>::SharedPtr odom_sub_;
   Odometry odom_data_;
+  Twist twist_;
 
   void odom_cb(const Odometry::SharedPtr msg) {
     RCLCPP_INFO(this->get_logger(), "Odometry callback");
-    
-    odom_data_ = *msg; 
+
+    odom_data_ = *msg;
   }
 
   rclcpp_action::GoalResponse
@@ -96,6 +100,41 @@ private:
         .detach();
   }
 
+  // utility functions for execute
+  //  - assume the robot is stopped (lin = ang = 0.0)
+  //  - assume no obstacles
+  //  - they operate at 10 Hz for accuracy
+  //  - they publish feedback (current pos) at 1 Hz
+  //  - they read odom_data_
+  //  - they publish Twist (vel_pub_)
+  //  - they use predefined tolerances
+  //  - they check for cancellation
+  //  - they stop the robot when done
+  //  - they return a boolean for success
+  //    - cancellation: false
+  //    - within tolerance: true
+  //    - else: false
+
+  double normalize_angle(double angle) {
+    double res = angle;
+    while (res > PI_)
+      res -= 2.0 * PI_;
+    while (res < -PI_)
+      res += 2.0 * PI_;
+    return res;
+  }
+
+  double yaw_from_quaternion(double x, double y, double z, double w) {
+    return atan2(2.0f * (w * z + x * y), w * w + x * x - y * y - z * z);
+  }
+
+  // in-place rotation (linear.x = 0.0)
+  // assumes normalized angle [-pi/2.0, pi/2.0]
+  bool rotate(double goal_norm_angle_rad) {}
+
+  // linear motion (angular.z = 0.0)
+  bool go_to(double goal_x_m, double goal_y_m) {}
+
   void execute(const std::shared_ptr<GoalHandlePose> goal_handle) {
     RCLCPP_INFO(this->get_logger(), "Executing goal");
 
@@ -117,9 +156,29 @@ private:
     6. Rotate robot around the computed angle.
     **************************************/
 
+    // 1. Stop the robot
+    twist_.linear.x = 0.0;
+    twist_.angular.z = 0.0;
+    vel_pub_.publish(twist_);
 
+    // 2. Compute angle to goal pose vector
+    double angle = normalize_angle(
+        atan2(goal->goal_pos.y - odom_data_.pose.pose.position.y,
+              goal->goal_pos.x - odom_data_.pose.pose.position.x));
 
+    // 3. Rotate toward goal
+    bool rotation_1_res = rotate(angle);
 
+    // 4. Go to pose
+    bool forward_res = go_to(goal->goal_pos.x, goal->goal_pos.y);
+
+    // 5. Normalize theta
+    angle = normalize_angle(goal->goal_pos.theta);
+
+    // 6. Rotate to theta
+    bool rotation_2_res = rotate(angle);
+
+    // TODO: check if goal is done and stop the robot
   }
 };
 
