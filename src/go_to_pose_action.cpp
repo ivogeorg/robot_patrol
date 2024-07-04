@@ -198,7 +198,7 @@ private:
   // linear motion (angular.z = 0.0)
   // required speed linear.x = 0.2
   bool go_to(double goal_x_m, double goal_y_m) {
-    const double VELOCITY = 0.2; // might be high
+    const double VELOCITY = 0.08; // might be high
     const double LINEAR_TOLERANCE = 0.05;
 
     twist_.linear.x = VELOCITY;
