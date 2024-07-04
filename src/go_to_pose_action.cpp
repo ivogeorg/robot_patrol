@@ -36,13 +36,13 @@ the theta value you will need to convert the quaternion into Euler angles.
 
 #define PI_ 3.14159265359
 
+using GoToPose = robot_patrol::action::GoToPose;
+using GoalHandlePose = rclcpp_action::ServerGoalHandle<GoToPose>;
+using Twist = geometry_msgs::msg::Twist;
+using Odometry = nav_msgs::msg::Odometry;
+
 class GoToPoseActionServerNode : public rclcpp::Node {
 public:
-  using GoToPose = robot_patrol::action::GoToPose;
-  using GoalHandlePose = rclcpp_action::ServerGoalHandle<GoToPose>;
-  using Twist = geometry_msgs::msg::Twist;
-  using Odometry = nav_msgs::msg::Odometry;
-
   explicit GoToPoseActionServerNode(
       const rclcpp::NodeOptions &options = rclcpp::NodeOptions())
       : Node("gotopose_server", options) {
@@ -65,12 +65,17 @@ private:
   rclcpp::Publisher<Twist>::SharedPtr vel_pub_;
   rclcpp::Subscription<Odometry>::SharedPtr odom_sub_;
   Odometry odom_data_;
+  double yaw_rad_;
   Twist twist_;
 
   void odom_cb(const Odometry::SharedPtr msg) {
-    RCLCPP_INFO(this->get_logger(), "Odometry callback");
+    // RCLCPP_INFO(this->get_logger(), "Odometry callback");
 
     odom_data_ = *msg;
+    // NOTE: dynamic yaw
+    yaw_rad_ = yaw_from_quaternion(
+        msg->pose.pose.orientation.x, msg->pose.pose.orientation.y,
+        msg->pose.pose.orientation.z, msg->pose.pose.orientation.w);
   }
 
   rclcpp_action::GoalResponse
@@ -105,10 +110,12 @@ private:
   //  - assume no obstacles
   //  - they operate at 10 Hz for accuracy
   //  - they publish feedback (current pos) at 1 Hz
+  // TODO: for this need `goal_handle` as arg!
   //  - they read odom_data_
   //  - they publish Twist (vel_pub_)
   //  - they use predefined tolerances
   //  - they check for cancellation
+  // TODO: for this need `goal_handle` and `result` as args!
   //  - they stop the robot when done
   //  - they return a boolean for success
   //    - cancellation: false
@@ -130,21 +137,97 @@ private:
 
   // in-place rotation (linear.x = 0.0)
   // assumes normalized angle [-pi/2.0, pi/2.0]
-  bool rotate(double goal_norm_angle_rad) {}
+  bool rotate(double goal_norm_angle_rad) {
+    const double VELOCITY = 0.08;
+    const double ANGULAR_TOLERANCE = 0.05;
+
+    twist_.angular.z = (goal_norm_angle_rad > 0) ? VELOCITY : -VELOCITY;
+    twist_.linear.x = 0.0;
+
+    double last_angle = yaw_rad_;
+    double turn_angle = 0.0;
+    double goal_angle = goal_norm_angle_rad;
+
+    // Necessary code duplication to avoid inaccuracy
+    // depending on the direction of rotation.
+    // Notice the condition in the while loops.
+    rclcpp::Rate rate(10); // 10 Hz
+    if (goal_angle > 0) {
+      while (rclcpp::ok() &&
+             (abs(turn_angle + ANGULAR_TOLERANCE) < abs(goal_angle))) {
+        vel_pub_->publish(twist_);
+        rate.sleep();
+
+        double temp_yaw = yaw_rad_;
+        double delta_angle = normalize_angle(temp_yaw - last_angle);
+
+        turn_angle += delta_angle;
+        last_angle = temp_yaw;
+      }
+    } else {
+      while (rclcpp::ok() &&
+             (abs(turn_angle - ANGULAR_TOLERANCE) < abs(goal_angle))) {
+        vel_pub_->publish(twist_);
+        rate.sleep();
+
+        double temp_yaw = yaw_rad_;
+        double delta_angle = normalize_angle(temp_yaw - last_angle);
+
+        turn_angle += delta_angle;
+        last_angle = temp_yaw;
+      }
+    }
+    // stop robot
+    twist_.linear.x = 0.0;
+    twist_.angular.z = 0.0;
+    vel_pub_->publish(twist_);
+
+    // TODO: this might be too restrictive
+    return abs(goal_norm_angle_rad - turn_angle) <= ANGULAR_TOLERANCE;
+    RCLCPP_INFO(this->get_logger(), "(rotate) Angular difference with goal: %f",
+                abs(goal_norm_angle_rad - turn_angle));
+    return true;
+  }
+
+  // NOTE: dynamic distance
+  double linear_distance(double goal_x, double goal_y) {
+    return sqrt(pow(goal_x - odom_data_.pose.pose.position.x, 2.0) +
+                pow(goal_y - odom_data_.pose.pose.position.y, 2.0));
+  }
 
   // linear motion (angular.z = 0.0)
-  bool go_to(double goal_x_m, double goal_y_m) {}
+  // required speed linear.x = 0.2
+  bool go_to(double goal_x_m, double goal_y_m) {
+    const double VELOCITY = 0.2; // might be high
+    const double LINEAR_TOLERANCE = 0.05;
+
+    twist_.linear.x = VELOCITY;
+
+    rclcpp::Rate rate(10); // 10 Hz
+    while (linear_distance(goal_x_m, goal_y_m) > LINEAR_TOLERANCE) {
+      vel_pub_->publish(twist_);
+      rate.sleep();
+    }
+
+    // stop robot
+    twist_.linear.x = 0.0;
+    twist_.angular.z = 0.0;
+    vel_pub_->publish(twist_);
+
+    // TODO: might be too restrictive
+    return linear_distance(goal_x_m, goal_y_m) < LINEAR_TOLERANCE;
+    // DEBUG
+    RCLCPP_INFO(this->get_logger(), "(go_to) Linear distance with goal: %f",
+                linear_distance(goal_x_m, goal_y_m));
+    return true;
+  }
 
   void execute(const std::shared_ptr<GoalHandlePose> goal_handle) {
     RCLCPP_INFO(this->get_logger(), "Executing goal");
 
     const auto goal = goal_handle->get_goal();
     auto feedback = std::make_shared<GoToPose::Feedback>();
-    // auto &message = feedback->current_pos;
-    // message = "Starting movement...";
     auto result = std::make_shared<GoToPose::Result>();
-    auto move = Twist();
-    rclcpp::Rate loop_rate(1);
 
     // TODO: implement
     /**************************************
@@ -159,7 +242,7 @@ private:
     // 1. Stop the robot
     twist_.linear.x = 0.0;
     twist_.angular.z = 0.0;
-    vel_pub_.publish(twist_);
+    vel_pub_->publish(twist_);
 
     // 2. Compute angle to goal pose vector
     double angle = normalize_angle(
@@ -179,6 +262,11 @@ private:
     bool rotation_2_res = rotate(angle);
 
     // TODO: check if goal is done and stop the robot
+    if (rclcpp::ok()) {
+      result->status = true; // TODO: condition on returns of motions
+      goal_handle->succeed(result);
+      RCLCPP_INFO(this->get_logger(), "Goal succeeded (TODO)");
+    }
   }
 };
 
