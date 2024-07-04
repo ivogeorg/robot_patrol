@@ -137,6 +137,8 @@ private:
 
   // in-place rotation (linear.x = 0.0)
   // assumes normalized angle [-pi/2.0, pi/2.0]
+  // TODO: add goal_handle and result for
+  // cancellation checks and feedback publishing
   bool rotate(double goal_norm_angle_rad) {
     const double VELOCITY = 0.08;
     const double ANGULAR_TOLERANCE = 0.05;
@@ -155,6 +157,8 @@ private:
     if (goal_angle > 0) {
       while (rclcpp::ok() &&
              (abs(turn_angle + ANGULAR_TOLERANCE) < abs(goal_angle))) {
+        // TODO: check for cancellation
+        // TODO: give feedback (current pos)
         vel_pub_->publish(twist_);
         rate.sleep();
 
@@ -167,6 +171,8 @@ private:
     } else {
       while (rclcpp::ok() &&
              (abs(turn_angle - ANGULAR_TOLERANCE) < abs(goal_angle))) {
+        // TODO: check for cancellation
+        // TODO: give feedback (current pos)
         vel_pub_->publish(twist_);
         rate.sleep();
 
@@ -197,14 +203,18 @@ private:
 
   // linear motion (angular.z = 0.0)
   // required speed linear.x = 0.2
+  // TODO: add goal_handle and result for
+  // cancellation checks and feedback publishing
   bool go_to(double goal_x_m, double goal_y_m) {
-    const double VELOCITY = 0.08; // might be high
+    const double VELOCITY = 0.08; // 2.0 is pretty high
     const double LINEAR_TOLERANCE = 0.05;
 
     twist_.linear.x = VELOCITY;
 
     rclcpp::Rate rate(10); // 10 Hz
     while (linear_distance(goal_x_m, goal_y_m) > LINEAR_TOLERANCE) {
+      // TODO: check for cancellation
+      // TODO: give feedback (current pos)
       vel_pub_->publish(twist_);
       rate.sleep();
     }
@@ -245,6 +255,7 @@ private:
     vel_pub_->publish(twist_);
 
     // 2. Compute angle to goal pose vector
+    // TODO: is this the right orientation?
     double angle = normalize_angle(
         atan2(goal->goal_pos.y - odom_data_.pose.pose.position.y,
               goal->goal_pos.x - odom_data_.pose.pose.position.x));
@@ -257,8 +268,15 @@ private:
 
     // 5. Normalize theta
     angle = normalize_angle(goal->goal_pos.theta);
+    // TODO:
+    // 1. theta is in degrees, so convert on entry
+    // 2. theta is in world frame!
+    //    - theta = 0.0, robot is oriented along +x
+    //    - theta = 90.0, robot is oriented along +y
 
     // 6. Rotate to theta
+    // TODO: rotate works in robot frame, which works
+    // for the first rotation, but not for the second
     bool rotation_2_res = rotate(angle);
 
     // TODO: check if goal is done and stop the robot
