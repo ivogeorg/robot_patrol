@@ -184,19 +184,19 @@ private:
 
         // send feedback
         if (feedback_counter % FB_DIVISOR == 0) {
-            Pose2D pose;
-            pose.x = odom_data_.pose.pose.position.x;
-            pose.y = odom_data_.pose.pose.position.y;
-            pose.theta = yaw_from_quaternion(
-                odom_data_.pose.pose.orientation.x, 
-                odom_data_.pose.pose.orientation.y, 
-                odom_data_.pose.pose.orientation.z, 
-                odom_data_.pose.pose.orientation.w);
-            feedback->current_pos = pose;
-            goal_handle->publish_feedback(feedback);
-            RCLCPP_INFO(this->get_logger(), "Publish feedback");
+          Pose2D pose;
+          pose.x = odom_data_.pose.pose.position.x;
+          pose.y = odom_data_.pose.pose.position.y;
+          pose.theta = yaw_from_quaternion(odom_data_.pose.pose.orientation.x,
+                                           odom_data_.pose.pose.orientation.y,
+                                           odom_data_.pose.pose.orientation.z,
+                                           odom_data_.pose.pose.orientation.w);
+          feedback->current_pos = pose;
+          goal_handle->publish_feedback(feedback);
+          RCLCPP_INFO(this->get_logger(), "Publish feedback");
         }
 
+        ++feedback_counter;
         rate.sleep();
 
         double temp_yaw = yaw_rad_;
@@ -211,6 +211,37 @@ private:
         // TODO: check for cancellation
         // TODO: give feedback (current pos)
         vel_pub_->publish(twist_);
+
+        // check for cancellation
+        if (goal_handle->is_canceling()) {
+          // stop the robot
+          twist_.linear.x = 0.0;
+          twist_.angular.z = 0.0;
+          vel_pub_->publish(twist_);
+
+          // report cancellation
+          result->status = false;
+          goal_handle->canceled(result);
+          RCLCPP_INFO(this->get_logger(), "Goal canceled");
+
+          return false;
+        }
+
+        // send feedback
+        if (feedback_counter % FB_DIVISOR == 0) {
+          Pose2D pose;
+          pose.x = odom_data_.pose.pose.position.x;
+          pose.y = odom_data_.pose.pose.position.y;
+          pose.theta = yaw_from_quaternion(odom_data_.pose.pose.orientation.x,
+                                           odom_data_.pose.pose.orientation.y,
+                                           odom_data_.pose.pose.orientation.z,
+                                           odom_data_.pose.pose.orientation.w);
+          feedback->current_pos = pose;
+          goal_handle->publish_feedback(feedback);
+          RCLCPP_INFO(this->get_logger(), "Publish feedback");
+        }
+
+        ++feedback_counter;
         rate.sleep();
 
         double temp_yaw = yaw_rad_;
@@ -251,11 +282,42 @@ private:
 
     twist_.linear.x = VELOCITY;
 
-    rclcpp::Rate rate(10); // 10 Hz
+    rclcpp::Rate rate(10);     // 10 Hz
+    const int FB_DIVISOR = 10; // 10 for 1 Hz feedback
+    int feedback_counter = 0;
     while (linear_distance(goal_x_m, goal_y_m) > LINEAR_TOLERANCE) {
-      // TODO: check for cancellation
-      // TODO: give feedback (current pos)
       vel_pub_->publish(twist_);
+
+      // check for cancellation
+      if (goal_handle->is_canceling()) {
+        // stop the robot
+        twist_.linear.x = 0.0;
+        twist_.angular.z = 0.0;
+        vel_pub_->publish(twist_);
+
+        // report cancellation
+        result->status = false;
+        goal_handle->canceled(result);
+        RCLCPP_INFO(this->get_logger(), "Goal canceled");
+
+        return false;
+      }
+
+      // send feedback
+      if (feedback_counter % FB_DIVISOR == 0) {
+        Pose2D pose;
+        pose.x = odom_data_.pose.pose.position.x;
+        pose.y = odom_data_.pose.pose.position.y;
+        pose.theta = yaw_from_quaternion(odom_data_.pose.pose.orientation.x,
+                                         odom_data_.pose.pose.orientation.y,
+                                         odom_data_.pose.pose.orientation.z,
+                                         odom_data_.pose.pose.orientation.w);
+        feedback->current_pos = pose;
+        goal_handle->publish_feedback(feedback);
+        RCLCPP_INFO(this->get_logger(), "Publish feedback");
+      }
+
+      ++feedback_counter;
       rate.sleep();
     }
 
@@ -332,7 +394,7 @@ private:
       // report success
       result->status = true;
       goal_handle->succeed(result);
-      RCLCPP_INFO(this->get_logger(), "Goal succeeded (TODO)");
+      RCLCPP_INFO(this->get_logger(), "Goal succeeded");
     } // else it was cancelled in rotate or go_to
   }
 };
