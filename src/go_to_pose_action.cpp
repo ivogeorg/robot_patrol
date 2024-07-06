@@ -60,6 +60,8 @@ public:
     vel_pub_ = this->create_publisher<Twist>("cmd_vel", 10);
     odom_sub_ = this->create_subscription<Odometry>(
         "odom", 10, std::bind(&GoToPoseActionServerNode::odom_cb, this, _1));
+
+    wait_for_odom_publisher();
   }
 
 private:
@@ -135,6 +137,21 @@ private:
 
   double yaw_from_quaternion(double x, double y, double z, double w) {
     return atan2(2.0f * (w * z + x * y), w * w + x * x - y * y - z * z);
+  }
+
+  void wait_for_odom_publisher() {
+    // ROS 2 does't have an equivalent to wait_for_publisher
+    // this is one way to solve the problem
+    while (this->count_publishers("odom") == 0) {
+      if (!rclcpp::ok()) {
+        RCLCPP_ERROR(
+            this->get_logger(),
+            "Interrupted while waiting for 'odom' topic publisher. Exiting.");
+        return;
+      }
+      RCLCPP_INFO(this->get_logger(),
+                  "'odom' topic publisher not available, waiting...");
+    }
   }
 
   // in-place rotation (linear.x = 0.0)
@@ -334,6 +351,33 @@ private:
     return true;
   }
 
+  void INFO_current_position() {
+    RCLCPP_INFO(this->get_logger(), "Current pos [%f, %f, %f]",
+                odom_data_.pose.pose.position.x,
+                odom_data_.pose.pose.position.y,
+                yaw_from_quaternion(odom_data_.pose.pose.orientation.x,
+                                    odom_data_.pose.pose.orientation.y,
+                                    odom_data_.pose.pose.orientation.z,
+                                    odom_data_.pose.pose.orientation.w));
+  }
+
+  void DEBUG_current_position() {
+    RCLCPP_DEBUG(this->get_logger(), "Current pos [%f, %f, %f]",
+                 odom_data_.pose.pose.position.x,
+                 odom_data_.pose.pose.position.y,
+                 yaw_from_quaternion(odom_data_.pose.pose.orientation.x,
+                                     odom_data_.pose.pose.orientation.y,
+                                     odom_data_.pose.pose.orientation.z,
+                                     odom_data_.pose.pose.orientation.w));
+  }
+
+  // uses odom directly
+  double get_current_yaw() {
+    return yaw_from_quaternion(
+        odom_data_.pose.pose.orientation.x, odom_data_.pose.pose.orientation.y,
+        odom_data_.pose.pose.orientation.z, odom_data_.pose.pose.orientation.w);
+  }
+
   void execute(const std::shared_ptr<GoalHandlePose> goal_handle) {
     RCLCPP_INFO(this->get_logger(), "Executing goal");
 
@@ -356,22 +400,41 @@ private:
     twist_.angular.z = 0.0;
     vel_pub_->publish(twist_);
 
+    // DEBUG
+    DEBUG_current_position();
+    RCLCPP_DEBUG(this->get_logger(), "Goal pos [%f, %f, %f]", goal->goal_pos.x,
+                 goal->goal_pos.y, goal->goal_pos.theta);
+    // end DEBUG
+
     // 2. Compute angle to goal pose vector
     // TODO: is this the right orientation?
-    double angle = normalize_angle(
-        atan2(goal->goal_pos.y - odom_data_.pose.pose.position.y,
-              goal->goal_pos.x - odom_data_.pose.pose.position.x));
+    double delta_y = goal->goal_pos.y - odom_data_.pose.pose.position.y;
+    double delta_x = goal->goal_pos.x - odom_data_.pose.pose.position.x;
+    // double delta_y = odom_data_.pose.pose.position.y - goal->goal_pos.y;
+    // double delta_x = odom_data_.pose.pose.position.x - goal->goal_pos.x;
+    double world_angle = atan2(delta_y, delta_x);
+    double robot_angle = world_angle - get_current_yaw();
+    double norm_angle =
+        normalize_angle(robot_angle); // TODO: shouldn't be necessary
+
+    RCLCPP_DEBUG(this->get_logger(), "delta_y = %f", delta_y);
+    RCLCPP_DEBUG(this->get_logger(), "delta_x = %f", delta_x);
+    RCLCPP_DEBUG(this->get_logger(), "angle = atan2(dy, dx) = %f (world frame)",
+                 world_angle);
+    RCLCPP_DEBUG(this->get_logger(), "angle = atan2(dy, dx) = %f (robot frame)",
+                 robot_angle);
+    RCLCPP_DEBUG(this->get_logger(), "norm_angle = %f", norm_angle);
 
     // 3. Rotate toward goal
     bool rotation_1_res =
-        rotate(angle, Frame::ROBOT, goal_handle, result, feedback);
+        rotate(robot_angle, Frame::ROBOT, goal_handle, result, feedback);
 
     // 4. Go to pose
     bool forward_res = go_to(goal->goal_pos.x, goal->goal_pos.y, goal_handle,
                              result, feedback);
 
     // 5. Normalize theta
-    angle = normalize_angle(goal->goal_pos.theta);
+    double angle = normalize_angle(goal->goal_pos.theta);
     // TODO:
     // 1. theta is in degrees, so convert on entry
     // 2. theta is in world frame!
@@ -381,6 +444,7 @@ private:
     // 6. Rotate to theta
     // TODO: rotate works in robot frame, which works
     // for the first rotation, but not for the second
+    // TODO: this should be world angle (but later...)
     bool rotation_2_res =
         rotate(angle, Frame::WORLD, goal_handle, result, feedback);
 
@@ -403,6 +467,17 @@ int main(int argc, char **argv) {
   rclcpp::init(argc, argv);
 
   auto action_server = std::make_shared<GoToPoseActionServerNode>();
+
+  auto logger = rclcpp::get_logger("gotopose_server");
+
+  // Set the log level to DEBUG
+  if (rcutils_logging_set_logger_level(
+          logger.get_name(), RCUTILS_LOG_SEVERITY_DEBUG) != RCUTILS_RET_OK) {
+    // Handle the error (e.g., print an error message or throw an exception)
+    RCLCPP_ERROR(logger, "Failed to set logger level for 'gotopose_server'.");
+  } else {
+    RCLCPP_INFO(logger, "Successfully set logger level for 'gotopose_server'.");
+  }
 
   rclcpp::executors::MultiThreadedExecutor exec;
   exec.add_node(action_server);
