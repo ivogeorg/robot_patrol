@@ -163,7 +163,7 @@ private:
               const std::shared_ptr<GoalHandlePose> goal_handle,
               std::shared_ptr<GoToPose::Result> result,
               std::shared_ptr<GoToPose::Feedback> feedback) {
-    const double VELOCITY = 0.08;
+    const double VELOCITY = 0.2;
     const double ANGULAR_TOLERANCE = 0.05;
 
     twist_.angular.z = (goal_norm_angle_rad > 0) ? VELOCITY : -VELOCITY;
@@ -171,7 +171,12 @@ private:
 
     double last_angle = yaw_rad_;
     double turn_angle = 0.0;
-    double goal_angle = goal_norm_angle_rad;
+
+    // if WORLD frame, subtract current robot yaw
+    double goal_angle =
+        (frame == Frame::ROBOT)
+            ? goal_norm_angle_rad
+            : normalize_angle(goal_norm_angle_rad - get_current_yaw());
 
     // Necessary code duplication to avoid inaccuracy
     // depending on the direction of rotation.
@@ -204,10 +209,7 @@ private:
           Pose2D pose;
           pose.x = odom_data_.pose.pose.position.x;
           pose.y = odom_data_.pose.pose.position.y;
-          pose.theta = yaw_from_quaternion(odom_data_.pose.pose.orientation.x,
-                                           odom_data_.pose.pose.orientation.y,
-                                           odom_data_.pose.pose.orientation.z,
-                                           odom_data_.pose.pose.orientation.w);
+          pose.theta = get_current_yaw() * 180.0 / PI_;
           feedback->current_pos = pose;
           goal_handle->publish_feedback(feedback);
           RCLCPP_INFO(this->get_logger(), "Publish feedback");
@@ -249,10 +251,7 @@ private:
           Pose2D pose;
           pose.x = odom_data_.pose.pose.position.x;
           pose.y = odom_data_.pose.pose.position.y;
-          pose.theta = yaw_from_quaternion(odom_data_.pose.pose.orientation.x,
-                                           odom_data_.pose.pose.orientation.y,
-                                           odom_data_.pose.pose.orientation.z,
-                                           odom_data_.pose.pose.orientation.w);
+          pose.theta = get_current_yaw() * 180.0 / PI_;
           feedback->current_pos = pose;
           goal_handle->publish_feedback(feedback);
           RCLCPP_INFO(this->get_logger(), "Publish feedback");
@@ -294,7 +293,13 @@ private:
              const std::shared_ptr<GoalHandlePose> goal_handle,
              std::shared_ptr<GoToPose::Result> result,
              std::shared_ptr<GoToPose::Feedback> feedback) {
-    const double VELOCITY = 0.08; // 2.0 is pretty high
+
+    // TODO: To avoid indefinite motion due to inaccuracies
+    //       in the rotation to the goal, calculate the
+    //       distance to travel and stop when the distance
+    //       has been travelled.
+
+    const double VELOCITY = 0.2; // 0.2 is pretty high
     const double LINEAR_TOLERANCE = 0.05;
 
     twist_.linear.x = VELOCITY;
@@ -325,10 +330,7 @@ private:
         Pose2D pose;
         pose.x = odom_data_.pose.pose.position.x;
         pose.y = odom_data_.pose.pose.position.y;
-        pose.theta = yaw_from_quaternion(odom_data_.pose.pose.orientation.x,
-                                         odom_data_.pose.pose.orientation.y,
-                                         odom_data_.pose.pose.orientation.z,
-                                         odom_data_.pose.pose.orientation.w);
+        pose.theta = get_current_yaw() * 180.0 / PI_;
         feedback->current_pos = pose;
         goal_handle->publish_feedback(feedback);
         RCLCPP_INFO(this->get_logger(), "Publish feedback");
@@ -433,8 +435,8 @@ private:
     bool forward_res = go_to(goal->goal_pos.x, goal->goal_pos.y, goal_handle,
                              result, feedback);
 
-    // 5. Normalize theta
-    double angle = normalize_angle(goal->goal_pos.theta);
+    // 5. Convert from degrees to radians
+    world_angle = goal->goal_pos.theta * PI_ / 180.0;
     // TODO:
     // 1. theta is in degrees, so convert on entry
     // 2. theta is in world frame!
@@ -446,7 +448,7 @@ private:
     // for the first rotation, but not for the second
     // TODO: this should be world angle (but later...)
     bool rotation_2_res =
-        rotate(angle, Frame::WORLD, goal_handle, result, feedback);
+        rotate(world_angle, Frame::WORLD, goal_handle, result, feedback);
 
     // check if goal is done and stop the robot
     if (rclcpp::ok() && rotation_1_res && forward_res && rotation_2_res) {
