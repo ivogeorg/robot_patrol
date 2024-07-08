@@ -268,10 +268,11 @@ private:
     twist_.angular.z = 0.0;
     vel_pub_->publish(twist_);
 
-    // TODO: this might be too restrictive
-    return abs(goal_norm_angle_rad - turn_angle) <= ANGULAR_TOLERANCE;
+    // DEBUG
     RCLCPP_INFO(this->get_logger(), "(rotate) Angular difference with goal: %f",
                 abs(goal_norm_angle_rad - turn_angle));
+    // end DEBUG
+    
     return true;
   }
 
@@ -317,9 +318,6 @@ private:
 
     while (sqrt(dx * dx + dy * dy + dz * dz) + LINEAR_TOLERANCE <=
            distance_to_goal) {
-      // }
-
-      // while (linear_distance(goal_x_m, goal_y_m) > LINEAR_TOLERANCE) {
       vel_pub_->publish(twist_);
 
       // check for cancellation
@@ -361,11 +359,10 @@ private:
     twist_.angular.z = 0.0;
     vel_pub_->publish(twist_);
 
-    // TODO: might be too restrictive
-    // return linear_distance(goal_x_m, goal_y_m) < LINEAR_TOLERANCE;
-    // // DEBUG
-    RCLCPP_INFO(this->get_logger(), "(go_to) Linear distance with goal: %f",
+    // DEBUG
+    RCLCPP_DEBUG(this->get_logger(), "(go_to) Linear distance with goal: %f",
                 linear_distance(goal_x_m, goal_y_m));
+    // end DEBUG
     return true;
   }
 
