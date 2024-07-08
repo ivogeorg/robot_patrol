@@ -109,23 +109,6 @@ private:
         .detach();
   }
 
-  // utility functions for execute
-  //  - assume the robot is stopped (lin = ang = 0.0)
-  //  - assume no obstacles
-  //  - they operate at 10 Hz for accuracy
-  //  - they publish feedback (current pos) at 1 Hz
-  // TODO: for this need `goal_handle` as arg!
-  //  - they read odom_data_
-  //  - they publish Twist (vel_pub_)
-  //  - they use predefined tolerances
-  //  - they check for cancellation
-  // TODO: for this need `goal_handle` and `result` as args!
-  //  - they stop the robot when done
-  //  - they return a boolean for success
-  //    - cancellation: false
-  //    - within tolerance: true
-  //    - else: false
-
   double normalize_angle(double angle) {
     double res = angle;
     while (res > PI_)
@@ -163,7 +146,7 @@ private:
               const std::shared_ptr<GoalHandlePose> goal_handle,
               std::shared_ptr<GoToPose::Result> result,
               std::shared_ptr<GoToPose::Feedback> feedback) {
-    const double VELOCITY = 0.2;
+    const double VELOCITY = 0.5;
     const double ANGULAR_TOLERANCE = 0.05;
 
     twist_.angular.z = (goal_norm_angle_rad > 0) ? VELOCITY : -VELOCITY;
@@ -177,6 +160,19 @@ private:
         (frame == Frame::ROBOT)
             ? goal_norm_angle_rad
             : normalize_angle(goal_norm_angle_rad - get_current_yaw());
+
+    // DEBUG
+    switch (frame) {
+    case Frame::ROBOT:
+      RCLCPP_DEBUG(this->get_logger(), "(rotate) Robot frame");
+      break;
+    case Frame::WORLD:
+      RCLCPP_DEBUG(this->get_logger(), "(rotate) World frame");
+      break;
+    }
+    RCLCPP_DEBUG(this->get_logger(), "(rotate) Goal angle (robot frame): %f",
+                 goal_angle * 180 / PI_);
+    // end DEBUG
 
     // Necessary code duplication to avoid inaccuracy
     // depending on the direction of rotation.
@@ -300,14 +296,30 @@ private:
     //       has been travelled.
 
     const double VELOCITY = 0.2; // 0.2 is pretty high
-    const double LINEAR_TOLERANCE = 0.05;
+    const double LINEAR_TOLERANCE = 0.005;
 
     twist_.linear.x = VELOCITY;
 
     rclcpp::Rate rate(10);     // 10 Hz
     const int FB_DIVISOR = 10; // 10 for 1 Hz feedback
     int feedback_counter = 0;
-    while (linear_distance(goal_x_m, goal_y_m) > LINEAR_TOLERANCE) {
+
+    double start_x = odom_data_.pose.pose.position.x, dx;
+    double start_y = odom_data_.pose.pose.position.y, dy;
+    double start_z = odom_data_.pose.pose.position.z, dz;
+
+    double distance_to_goal =
+        sqrt(pow(goal_x_m - start_x, 2.0) + pow(goal_y_m - start_y, 2.0));
+
+    dx = odom_data_.pose.pose.position.x - start_x;
+    dy = odom_data_.pose.pose.position.y - start_y;
+    dz = odom_data_.pose.pose.position.z - start_z;
+
+    while (sqrt(dx * dx + dy * dy + dz * dz) + LINEAR_TOLERANCE <=
+           distance_to_goal) {
+      // }
+
+      // while (linear_distance(goal_x_m, goal_y_m) > LINEAR_TOLERANCE) {
       vel_pub_->publish(twist_);
 
       // check for cancellation
@@ -338,6 +350,10 @@ private:
 
       ++feedback_counter;
       rate.sleep();
+
+      dx = odom_data_.pose.pose.position.x - start_x;
+      dy = odom_data_.pose.pose.position.y - start_y;
+      dz = odom_data_.pose.pose.position.z - start_z;
     }
 
     // stop robot
@@ -346,8 +362,8 @@ private:
     vel_pub_->publish(twist_);
 
     // TODO: might be too restrictive
-    return linear_distance(goal_x_m, goal_y_m) < LINEAR_TOLERANCE;
-    // DEBUG
+    // return linear_distance(goal_x_m, goal_y_m) < LINEAR_TOLERANCE;
+    // // DEBUG
     RCLCPP_INFO(this->get_logger(), "(go_to) Linear distance with goal: %f",
                 linear_distance(goal_x_m, goal_y_m));
     return true;
@@ -387,15 +403,10 @@ private:
     auto feedback = std::make_shared<GoToPose::Feedback>();
     auto result = std::make_shared<GoToPose::Result>();
 
-    // TODO: implement
-    /**************************************
-    1. Compute the line-of-sight vector in (x, y).
-    2. Compute the angle between robot front and vector.
-    3. Rotate robot around the computed angle.
-    4. Go forward until the goal (x, y) pos is reached.
-    5. Compute the angle between robot front and goal theta.
-    6. Rotate robot around the computed angle.
-    **************************************/
+    // Goal is achieved in three main steps:
+    // 1. The robot computes the angle to and rotates to face the goal pos.
+    // 2. The robot moves forward to reach the goal pos.
+    // 3. The robot rotates to face the angle theta in the world frame.
 
     // 1. Stop the robot
     twist_.linear.x = 0.0;
@@ -421,11 +432,14 @@ private:
 
     RCLCPP_DEBUG(this->get_logger(), "delta_y = %f", delta_y);
     RCLCPP_DEBUG(this->get_logger(), "delta_x = %f", delta_x);
-    RCLCPP_DEBUG(this->get_logger(), "angle = atan2(dy, dx) = %f (world frame)",
-                 world_angle);
-    RCLCPP_DEBUG(this->get_logger(), "angle = atan2(dy, dx) = %f (robot frame)",
-                 robot_angle);
-    RCLCPP_DEBUG(this->get_logger(), "norm_angle = %f", norm_angle);
+    RCLCPP_DEBUG(this->get_logger(),
+                 "Dir to face = atan2(dy, dx) = %f (world frame)",
+                 world_angle * 180 / PI_);
+    RCLCPP_DEBUG(this->get_logger(),
+                 "Target robot yaw = atan2(dy, dx) = %f (robot frame)",
+                 robot_angle * 180.0 / PI_);
+    RCLCPP_DEBUG(this->get_logger(), "Norm robot yaw = %f",
+                 norm_angle * 180.0 / PI_);
 
     // 3. Rotate toward goal
     bool rotation_1_res =
@@ -436,17 +450,12 @@ private:
                              result, feedback);
 
     // 5. Convert from degrees to radians
+    RCLCPP_DEBUG(this->get_logger(), "World angle to turn to = %f",
+                 goal->goal_pos.theta);
+
     world_angle = goal->goal_pos.theta * PI_ / 180.0;
-    // TODO:
-    // 1. theta is in degrees, so convert on entry
-    // 2. theta is in world frame!
-    //    - theta = 0.0, robot is oriented along +x
-    //    - theta = 90.0, robot is oriented along +y
 
     // 6. Rotate to theta
-    // TODO: rotate works in robot frame, which works
-    // for the first rotation, but not for the second
-    // TODO: this should be world angle (but later...)
     bool rotation_2_res =
         rotate(world_angle, Frame::WORLD, goal_handle, result, feedback);
 
