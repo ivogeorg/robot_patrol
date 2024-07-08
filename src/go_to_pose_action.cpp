@@ -272,7 +272,7 @@ private:
     RCLCPP_INFO(this->get_logger(), "(rotate) Angular difference with goal: %f",
                 abs(goal_norm_angle_rad - turn_angle));
     // end DEBUG
-    
+
     return true;
   }
 
@@ -291,12 +291,7 @@ private:
              std::shared_ptr<GoToPose::Result> result,
              std::shared_ptr<GoToPose::Feedback> feedback) {
 
-    // TODO: To avoid indefinite motion due to inaccuracies
-    //       in the rotation to the goal, calculate the
-    //       distance to travel and stop when the distance
-    //       has been travelled.
-
-    const double VELOCITY = 0.2; // 0.2 is pretty high
+    const double VELOCITY = 0.2;
     const double LINEAR_TOLERANCE = 0.005;
 
     twist_.linear.x = VELOCITY;
@@ -360,9 +355,10 @@ private:
     vel_pub_->publish(twist_);
 
     // DEBUG
-    RCLCPP_DEBUG(this->get_logger(), "(go_to) Linear distance with goal: %f",
-                linear_distance(goal_x_m, goal_y_m));
+    RCLCPP_DEBUG(this->get_logger(), "(go_to) Final distance from goal: %f",
+                 linear_distance(goal_x_m, goal_y_m));
     // end DEBUG
+
     return true;
   }
 
@@ -417,44 +413,45 @@ private:
     // end DEBUG
 
     // 2. Compute angle to goal pose vector
-    // TODO: is this the right orientation?
     double delta_y = goal->goal_pos.y - odom_data_.pose.pose.position.y;
     double delta_x = goal->goal_pos.x - odom_data_.pose.pose.position.x;
-    // double delta_y = odom_data_.pose.pose.position.y - goal->goal_pos.y;
-    // double delta_x = odom_data_.pose.pose.position.x - goal->goal_pos.x;
-    double world_angle = atan2(delta_y, delta_x);
-    double robot_angle = world_angle - get_current_yaw();
-    double norm_angle =
-        normalize_angle(robot_angle); // TODO: shouldn't be necessary
+
+    double goal_dir_world = atan2(delta_y, delta_x);
+    double robot_angle_to_goal = goal_dir_world - get_current_yaw();
+    double norm_robot_angle_to_goal = normalize_angle(robot_angle_to_goal);
 
     RCLCPP_DEBUG(this->get_logger(), "delta_y = %f", delta_y);
     RCLCPP_DEBUG(this->get_logger(), "delta_x = %f", delta_x);
     RCLCPP_DEBUG(this->get_logger(),
-                 "Dir to face = atan2(dy, dx) = %f (world frame)",
-                 world_angle * 180 / PI_);
+                 "Goal direction = atan2(dy, dx) = %f (world frame)",
+                 goal_dir_world * 180 / PI_);
     RCLCPP_DEBUG(this->get_logger(),
                  "Target robot yaw = atan2(dy, dx) = %f (robot frame)",
-                 robot_angle * 180.0 / PI_);
+                 robot_angle_to_goal * 180.0 / PI_);
     RCLCPP_DEBUG(this->get_logger(), "Norm robot yaw = %f",
-                 norm_angle * 180.0 / PI_);
+                 norm_robot_angle_to_goal * 180.0 / PI_);
 
     // 3. Rotate toward goal
-    bool rotation_1_res =
-        rotate(robot_angle, Frame::ROBOT, goal_handle, result, feedback);
+    bool rotation_1_res = rotate(norm_robot_angle_to_goal, Frame::ROBOT,
+                                 goal_handle, result, feedback);
 
     // 4. Go to pose
-    bool forward_res = go_to(goal->goal_pos.x, goal->goal_pos.y, goal_handle,
-                             result, feedback);
+    bool forward_res = false;
+    if (rotation_1_res)
+      forward_res = go_to(goal->goal_pos.x, goal->goal_pos.y, goal_handle,
+                          result, feedback);
 
     // 5. Convert from degrees to radians
     RCLCPP_DEBUG(this->get_logger(), "World angle to turn to = %f",
                  goal->goal_pos.theta);
 
-    world_angle = goal->goal_pos.theta * PI_ / 180.0;
+    double robot_target_theta_world = goal->goal_pos.theta * PI_ / 180.0;
 
     // 6. Rotate to theta
-    bool rotation_2_res =
-        rotate(world_angle, Frame::WORLD, goal_handle, result, feedback);
+    bool rotation_2_res = false;
+    if (forward_res)
+      rotation_2_res = rotate(robot_target_theta_world, Frame::WORLD,
+                              goal_handle, result, feedback);
 
     // check if goal is done and stop the robot
     if (rclcpp::ok() && rotation_1_res && forward_res && rotation_2_res) {
