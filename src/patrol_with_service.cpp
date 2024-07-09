@@ -67,15 +67,45 @@ private:
   double yaw_;   // current orientation
   bool turning_; // supports pass-through code for turning
 
+  // laser scanner parametrization
+  bool laser_scanner_parametrized_ = false;
+  double angle_increment;
+
+  // arc indices
+  int right_start, right_end;
+  int front_start, front_end;
+  int left_start, left_end;
+  int front;
+
   // Motion parameters
   const double VELOCITY_INCREMENT = 0.1;
   const double ANGULAR_BASE = 0.5;
-  const double LINEAR_BASE = 0.1; // REQUIREMENT
+  const double LINEAR_BASE = 0.1;
   const double LINEAR_TURN = LINEAR_BASE * 0.5;
   const double OBSTACLE_FWD_PROXIMITY = 0.35;
   const double ANGULAR_TOLERANCE_DEG = 1.5;
   const double ANGULAR_TOLERANCE = ANGULAR_TOLERANCE_DEG * DEG2RAD;
-  const double DIRECTION_TURN_DIVISOR = 1.5; // REQUIREMENT 2.0
+  const double DIRECTION_TURN_DIVISOR = 1.5;
+  const int FRONT_FANOUT = 4;
+
+  // Velocity control
+  // Tuples of:
+  //   times * range_min
+  //   linear velocity
+  //   times * angular velocity
+  // Example:
+  // At 6.0 times range_min from an obstacle, set
+  // linear.x = 0.08 and angular.z = 1.0 * ang_vel,
+  // where ang_vel is the direction angle of the
+  // ray with the farthest range in the sector
+  // returned from the direction service {"left",
+  // "front", "right"}
+  double range_min;
+  const std::vector<std::tuple<double, double, double>> vel_ctrl{
+      {6.0, 0.08, 1.0},
+      {3.0, 0.04, 1.5},
+      {1.5, 0.02, 2.0},
+  };
 
   // Misc. parameters
   const double FLOAT_COMPARISON_TOLERANCE = 1e-9;
@@ -95,11 +125,19 @@ private:
   void start();        // start timed service call
   void service_call(); // send request to direction service
 
+  // nav
+  std::tuple<double, bool> obstacle_in_range_linear(int from, int to,
+                                                    double dist);
+  void adjust_velocities(double linear_base, double angular_base);
+  double best_direction(std::string dir);
+  // end nav
+
   // utility functions
   void wait_for_laser_scan_publisher();
   void wait_for_direction_server();
 
   double yaw_from_quaternion(double x, double y, double z, double w);
+  void parametrize_laser_scanner(LaserScan &scan_data);
   // end utility functions
 };
 
@@ -134,17 +172,20 @@ void Patrol::init() {
 void Patrol::velocity_callback(
     rclcpp::Client<GetDirection>::SharedFuture future) {
 
-    // TODO
-    /***********************************
-    1. Reintroduce obstacle_in_range.
-    2. Define stages of approach, say {0.6, 0.3, 0.1}.
-    3. Use the stages of approach to modify linear and angular.
-    4. Reintroduce find_direction and use the direction service
-       to either:
-       1. Look for direction in the arc/sector returned, or
-       2. Filter found directions by the arc/sector returned.
-    5. Use the direction found to define angular.
-    ***********************************/
+  // TODO
+  /***********************************
+  1. Reintroduce obstacle_in_range.
+  2. Define stages of approach, say {0.6, 0.3, 0.1}.
+  3. Use the stages of approach to modify linear and angular.
+  4. Reintroduce find_direction and use the direction service
+     to either:
+     1. Look for direction in the arc/sector returned, or
+     2. Filter found directions by the arc/sector returned.
+  5. Use the direction found to define angular.
+  ***********************************/
+
+  if (!laser_scanner_parametrized_)
+    parametrize_laser_scanner(last_laser_);
 
   std::string direction;
 
@@ -160,19 +201,22 @@ void Patrol::velocity_callback(
     RCLCPP_INFO(this->get_logger(), "Direction '%s'", direction.c_str());
   }
 
-  if (direction == "right") {
-    cmd_vel_msg_.linear.x = 0.1;
-    cmd_vel_msg_.angular.z = -0.5;
-  } else if (direction == "left") {
-    cmd_vel_msg_.linear.x = 0.1;
-    cmd_vel_msg_.angular.z = 0.5;
-  } else if (direction == "forward") {
-    cmd_vel_msg_.linear.x = 0.1;
-    cmd_vel_msg_.angular.z = 0.0;
-  } else {
-    cmd_vel_msg_.linear.x = 0.0;
-    cmd_vel_msg_.angular.z = 0.0;
-  }
+//   if (direction == "right") {
+//     cmd_vel_msg_.linear.x = 0.1;
+//     cmd_vel_msg_.angular.z = -0.5;
+//   } else if (direction == "left") {
+//     cmd_vel_msg_.linear.x = 0.1;
+//     cmd_vel_msg_.angular.z = 0.5;
+//   } else if (direction == "forward") {
+//     cmd_vel_msg_.linear.x = 0.1;
+//     cmd_vel_msg_.angular.z = 0.0;
+//   } else {
+//     cmd_vel_msg_.linear.x = 0.0;
+//     cmd_vel_msg_.angular.z = 0.0;
+//   }
+
+  // cmd_vel_msg_ is set 
+  adjust_velocities(0.1, best_direction(direction));
 
   // single point of publishing
   publisher_->publish(cmd_vel_msg_);
@@ -260,6 +304,192 @@ double Patrol::yaw_from_quaternion(double x, double y, double z, double w) {
   return atan2(2.0f * (w * z + x * y), w * w + x * x - y * y - z * z);
 }
 
+void Patrol::parametrize_laser_scanner(LaserScan &scan_data) {
+  angle_increment = scan_data.angle_increment;
+  range_min = scan_data.range_min;
+
+  // DEBUG
+  RCLCPP_DEBUG(this->get_logger(), "angle_increment = %f", angle_increment);
+  // end DEBUG
+
+  int thirty_deg_indices = static_cast<int>((PI_ / 6.0) / angle_increment);
+
+  // DEBUG
+  RCLCPP_DEBUG(this->get_logger(), "thirty_deg_indices = %d",
+               thirty_deg_indices);
+  // end DEBUG
+
+  double front_center_double = PI_ / angle_increment;
+  int front_center_ix = static_cast<int>(lround(front_center_double));
+  front = front_center_ix;
+
+  // DEBUG
+  RCLCPP_DEBUG(this->get_logger(), "front_center_double = %f",
+               front_center_double);
+  RCLCPP_DEBUG(this->get_logger(), "front_center_ix = %d", front_center_ix);
+  // end DEBUG
+
+  // to ensure equal arc lengths (in indices)
+  // start with front, then extend to right and left
+  // the length of front
+  front_start = front_center_ix - thirty_deg_indices - 1;
+  front_end = front_center_ix + thirty_deg_indices;
+
+  int sixty_deg_indices = front_end - front_start - 1;
+
+  right_end = front_start - 1;
+  right_start = right_end - sixty_deg_indices - 1;
+
+  left_start = front_end + 1;
+  left_end = left_start + sixty_deg_indices + 1;
+
+  // // right:
+  // // Relative to front_start [-pi/2.0, -pi/6.0]
+  // // Relative to ranges array index 0 angle [pi/2.0, 5.0 * pi/6.0]
+  // right_start = static_cast<int>(lround((PI_ / 2.0) / angle_increment));
+  // right_end = static_cast<int>(lround((5.0 * PI_ / 6.0) / angle_increment));
+
+  // DEBUG
+  RCLCPP_DEBUG(this->get_logger(), "right_start = %d", right_start);
+  RCLCPP_DEBUG(this->get_logger(), "right_end = %d", right_end);
+  // end DEBUG
+
+  // // forward:
+  // // Relative to front_start [0.0, pi/3.0]
+  // // Relative to ranges array index 0 angle [5.0 * pi/6.0, 7.0 * pi/6.0]
+  // front_start = right_end + 1;
+  // front_end = static_cast<int>(lround((7.0 * PI_ / 6.0) / angle_increment));
+
+  // DEBUG
+  RCLCPP_DEBUG(this->get_logger(), "front_start = %d", front_start);
+  RCLCPP_DEBUG(this->get_logger(), "front_end = %d", front_end);
+  // end DEBUG
+
+  // // left:
+  // // Relative to front_start [pi/3.0, 2.0 *pi/3.0]
+  // // Relative to ranges array index 0 angle [7.0 * pi/6.0, 3.0 * pi/2.0]
+  // left_start = front_end + 1;
+  // left_end = static_cast<int>(lround((3.0 * PI_ / 2.0) / angle_increment));
+
+  // DEBUG
+  RCLCPP_DEBUG(this->get_logger(), "left_start = %d", left_start);
+  RCLCPP_DEBUG(this->get_logger(), "left_end = %d", left_end);
+  // end DEBUG
+
+  // DEBUG
+  // inclusive counting, hence the -1
+  RCLCPP_DEBUG(this->get_logger(), "right_end - right_start - 1 = %d",
+               right_end - right_start - 1);
+  RCLCPP_DEBUG(this->get_logger(), "front_end - front_start - 1 = %d",
+               front_end - front_start - 1);
+  RCLCPP_DEBUG(this->get_logger(), "left_end - left_start - 1 = %d",
+               left_end - left_start - 1);
+  // end DEBUG
+
+  laser_scanner_parametrized_ = true;
+}
+
+// navigation
+
+// linear, not circular as we only look 180 deg forward
+std::tuple<double, bool> Patrol::obstacle_in_range_linear(int from, int to,
+                                                          double dist) {
+  // is there an obstacle between from and to
+  bool is_obstacle = false;
+  for (int i = from; i <= to; ++i) { // "linear" span/arc/sector
+    if (!std::isinf(last_laser_.ranges[i]) && last_laser_.ranges[i] <= dist)
+      is_obstacle = true;
+  }
+
+  // how close are obstacles in front
+  // fanaout to smooth out inf values
+  double front_dist = 0.0;
+  for (int i = front - FRONT_FANOUT; i <= front + FRONT_FANOUT; ++i) {
+    if (!std::isinf(last_laser_.ranges[i]) &&
+        last_laser_.ranges[i] > front_dist)
+      front_dist = last_laser_.ranges[i];
+  }
+
+  return std::make_tuple(front_dist, is_obstacle);
+}
+
+// Velocity control
+// Tuples of:
+//   times * range_min
+//   linear velocity
+//   times * angular velocity
+// Example:
+// At 6.0 times range_min from an obstacle, set
+// linear.x = 0.08 and angular.z = 1.0 * ang_vel,
+// where ang_vel is the direction angle of the
+// ray with the farthest range in the sector
+// returned from the direction service {"left",
+// "front", "right"}
+void Patrol::adjust_velocities(double linear_base, double angular_base) {
+  /*
+    const std::vector<std::tuple<double, double, double>> vel_ctrl{
+        {6.0, 0.08, 1.0},
+        {3.0, 0.04, 1.5},
+        {1.5, 0.02, 2.0},
+    };
+  */
+
+  // how close are obstacles in front
+  // fanaout to smooth out inf values
+  double front_dist = 0.0;
+  for (int i = front - FRONT_FANOUT; i <= front + FRONT_FANOUT; ++i) {
+    if (!std::isinf(last_laser_.ranges[i]) &&
+        last_laser_.ranges[i] > front_dist)
+      front_dist = last_laser_.ranges[i];
+  }
+
+  // apply vel control vector
+  if (front_dist <= std::get<0>(vel_ctrl[2]) * range_min) {
+    cmd_vel_msg_.linear.x = std::get<1>(vel_ctrl[2]);
+    cmd_vel_msg_.angular.z = std::get<2>(vel_ctrl[2]) * angular_base;
+  } else if (front_dist <= std::get<0>(vel_ctrl[1]) * range_min) {
+    cmd_vel_msg_.linear.x = std::get<1>(vel_ctrl[1]);
+    cmd_vel_msg_.angular.z = std::get<2>(vel_ctrl[1]) * angular_base;
+  } else if (front_dist <= std::get<0>(vel_ctrl[0]) * range_min) {
+    cmd_vel_msg_.linear.x = std::get<1>(vel_ctrl[0]);
+    cmd_vel_msg_.angular.z = std::get<2>(vel_ctrl[0]) * angular_base;
+  } else {
+    cmd_vel_msg_.linear.x = linear_base;
+    cmd_vel_msg_.angular.z = angular_base;
+  }
+}
+
+double Patrol::best_direction(std::string dir) {
+  int from, to;
+
+  if (dir == "left") {
+    from = left_start;
+    to = left_end;
+  } else if (dir == "forward") {
+    from = front_start;
+    to = front_end;
+  } else if (dir == "right") {
+    from = right_start;
+    to = right_end;
+  } else { // for sanity
+    from = front;
+    to = front;
+  }
+
+  double largest_range = 0.0;
+  int largest_range_ix = -1;
+  for (int i = from; i <= to; ++i)
+    if (!std::isinf(last_laser_.ranges[i]) &&
+        last_laser_.ranges[i] > largest_range) {
+      largest_range = last_laser_.ranges[i];
+      largest_range_ix = i;
+    }
+
+  return (largest_range_ix - front) * angle_increment;
+}
+
+// end navigation
+
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
 
@@ -269,7 +499,8 @@ int main(int argc, char *argv[]) {
 
   //   // Set the log level to DEBUG
   //   if (rcutils_logging_set_logger_level(
-  //           logger.get_name(), RCUTILS_LOG_SEVERITY_DEBUG) != RCUTILS_RET_OK)
+  //           logger.get_name(), RCUTILS_LOG_SEVERITY_DEBUG) !=
+  //           RCUTILS_RET_OK)
   //           {
   //     // Handle the error (e.g., print an error message or throw an
   //     exception) RCLCPP_ERROR(logger, "Failed to set logger level for
