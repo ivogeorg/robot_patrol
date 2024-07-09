@@ -179,16 +179,16 @@ private:
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
 
-  auto logger = rclcpp::get_logger("direction_server_node");
+//   auto logger = rclcpp::get_logger("direction_server_node");
 
-  // Set the log level to DEBUG
-  if (rcutils_logging_set_logger_level(
-          logger.get_name(), RCUTILS_LOG_SEVERITY_DEBUG) != RCUTILS_RET_OK) {
-    // Handle the error (e.g., print an error message or throw an exception)
-    RCLCPP_ERROR(logger, "Failed to set logger level for robot_patrol_node.");
-  } else {
-    RCLCPP_INFO(logger, "Successfully set logger level for robot_patrol_node.");
-  }
+//   // Set the log level to DEBUG
+//   if (rcutils_logging_set_logger_level(
+//           logger.get_name(), RCUTILS_LOG_SEVERITY_DEBUG) != RCUTILS_RET_OK) {
+//     // Handle the error (e.g., print an error message or throw an exception)
+//     RCLCPP_ERROR(logger, "Failed to set logger level for robot_patrol_node.");
+//   } else {
+//     RCLCPP_INFO(logger, "Successfully set logger level for robot_patrol_node.");
+//   }
 
   rclcpp::spin(std::make_shared<DirectionServerNode>());
   rclcpp::shutdown();

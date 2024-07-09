@@ -194,11 +194,11 @@ void Patrol::velocity_callback(
     RCLCPP_INFO(this->get_logger(), "Service '%s' in progress...",
                 direction_service_name_.c_str());
   } else {
-    RCLCPP_INFO(this->get_logger(), "Service '%s' response",
+    RCLCPP_DEBUG(this->get_logger(), "Service '%s' response",
                 direction_service_name_.c_str());
     auto result = future.get();
     direction = result->direction;
-    RCLCPP_INFO(this->get_logger(), "Direction '%s'", direction.c_str());
+    RCLCPP_DEBUG(this->get_logger(), "Direction '%s'", direction.c_str());
   }
 
 //   if (direction == "right") {
