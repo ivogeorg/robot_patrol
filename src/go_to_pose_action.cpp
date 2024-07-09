@@ -155,10 +155,6 @@ private:
               std::shared_ptr<GoToPose::Result> result,
               std::shared_ptr<GoToPose::Feedback> feedback) {
 
-    twist_.angular.z =
-        (goal_norm_angle_rad > 0) ? ANGULAR_VELOCITY : -ANGULAR_VELOCITY;
-    twist_.linear.x = 0.0;
-
     double last_angle = yaw_rad_;
     double turn_angle = 0.0;
 
@@ -167,6 +163,9 @@ private:
         (frame == Frame::ROBOT)
             ? goal_norm_angle_rad
             : normalize_angle(goal_norm_angle_rad - get_current_yaw());
+
+    twist_.angular.z = (goal_angle > 0) ? ANGULAR_VELOCITY : -ANGULAR_VELOCITY;
+    twist_.linear.x = 0.0;
 
     // DEBUG
     RCLCPP_DEBUG(this->get_logger(), "(rotate) Angle passed: %.2f",
