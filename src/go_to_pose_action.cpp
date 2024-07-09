@@ -72,6 +72,8 @@ private:
   const double EXEC_LOOP_RATE = 10.0; // 10 Hz
   const int FEEDBACK_DIVISOR = 5;     // 2 Hz feedback
 
+  enum class Frame { ROBOT, WORLD };
+
   rclcpp_action::Server<GoToPose>::SharedPtr action_server_;
   rclcpp::Publisher<Twist>::SharedPtr vel_pub_;
   rclcpp::Subscription<Odometry>::SharedPtr odom_sub_;
@@ -147,9 +149,7 @@ private:
 
   // in-place rotation (linear.x = 0.0)
   // assumes normalized angle [-pi/2.0, pi/2.0]
-  // TODO: add goal_handle and result for
-  // cancellation checks and feedback publishing
-  enum class Frame { ROBOT, WORLD };
+  // can rotate in robot or world frame
   bool rotate(double goal_norm_angle_rad, Frame frame,
               const std::shared_ptr<GoalHandlePose> goal_handle,
               std::shared_ptr<GoToPose::Result> result,
@@ -234,8 +234,7 @@ private:
     } else {
       while (rclcpp::ok() &&
              (abs(turn_angle - ANGULAR_TOLERANCE) < abs(goal_angle))) {
-        // TODO: check for cancellation
-        // TODO: give feedback (current pos)
+
         vel_pub_->publish(twist_);
 
         // check for cancellation
@@ -296,8 +295,6 @@ private:
 
   // linear motion (angular.z = 0.0)
   // required speed linear.x = 0.2
-  // TODO: add goal_handle and result for
-  // cancellation checks and feedback publishing
   bool go_to(double goal_x_m, double goal_y_m,
              const std::shared_ptr<GoalHandlePose> goal_handle,
              std::shared_ptr<GoToPose::Result> result,
@@ -483,16 +480,16 @@ int main(int argc, char **argv) {
 
   auto action_server = std::make_shared<GoToPoseActionServerNode>();
 
-  auto logger = rclcpp::get_logger("gotopose_server");
+//   auto logger = rclcpp::get_logger("gotopose_server");
 
-  // Set the log level to DEBUG
-  if (rcutils_logging_set_logger_level(
-          logger.get_name(), RCUTILS_LOG_SEVERITY_DEBUG) != RCUTILS_RET_OK) {
-    // Handle the error (e.g., print an error message or throw an exception)
-    RCLCPP_ERROR(logger, "Failed to set logger level for 'gotopose_server'.");
-  } else {
-    RCLCPP_INFO(logger, "Successfully set logger level for 'gotopose_server'.");
-  }
+//   // Set the log level to DEBUG
+//   if (rcutils_logging_set_logger_level(
+//           logger.get_name(), RCUTILS_LOG_SEVERITY_DEBUG) != RCUTILS_RET_OK) {
+//     // Handle the error (e.g., print an error message or throw an exception)
+//     RCLCPP_ERROR(logger, "Failed to set logger level for 'gotopose_server'.");
+//   } else {
+//     RCLCPP_INFO(logger, "Successfully set logger level for 'gotopose_server'.");
+//   }
 
   rclcpp::executors::MultiThreadedExecutor exec;
   exec.add_node(action_server);
