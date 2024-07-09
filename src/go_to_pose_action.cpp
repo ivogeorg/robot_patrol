@@ -65,9 +65,17 @@ public:
   }
 
 private:
+  const double ANGULAR_VELOCITY = 0.5;
+  const double ANGULAR_TOLERANCE = 0.05;
+  const double LINEAR_VELOCITY = 0.2;
+  const double LINEAR_TOLERANCE = 0.005;
+  const double EXEC_LOOP_RATE = 10.0; // 10 Hz
+  const int FEEDBACK_DIVISOR = 5;     // 2 Hz feedback
+
   rclcpp_action::Server<GoToPose>::SharedPtr action_server_;
   rclcpp::Publisher<Twist>::SharedPtr vel_pub_;
   rclcpp::Subscription<Odometry>::SharedPtr odom_sub_;
+
   Odometry odom_data_;
   double yaw_rad_;
   Twist twist_;
@@ -146,10 +154,9 @@ private:
               const std::shared_ptr<GoalHandlePose> goal_handle,
               std::shared_ptr<GoToPose::Result> result,
               std::shared_ptr<GoToPose::Feedback> feedback) {
-    const double VELOCITY = 0.5;
-    const double ANGULAR_TOLERANCE = 0.05;
 
-    twist_.angular.z = (goal_norm_angle_rad > 0) ? VELOCITY : -VELOCITY;
+    twist_.angular.z =
+        (goal_norm_angle_rad > 0) ? ANGULAR_VELOCITY : -ANGULAR_VELOCITY;
     twist_.linear.x = 0.0;
 
     double last_angle = yaw_rad_;
@@ -162,6 +169,8 @@ private:
             : normalize_angle(goal_norm_angle_rad - get_current_yaw());
 
     // DEBUG
+    RCLCPP_DEBUG(this->get_logger(), "(rotate) Angle passed: %.2f",
+                 goal_norm_angle_rad * 180.0 / PI_);
     switch (frame) {
     case Frame::ROBOT:
       RCLCPP_DEBUG(this->get_logger(), "(rotate) Robot frame");
@@ -170,15 +179,18 @@ private:
       RCLCPP_DEBUG(this->get_logger(), "(rotate) World frame");
       break;
     }
-    RCLCPP_DEBUG(this->get_logger(), "(rotate) Goal angle (robot frame): %f",
+    RCLCPP_DEBUG(this->get_logger(), "(rotate) Current yaw: %.2f",
+                 get_current_yaw() * 180 / PI_);
+    RCLCPP_DEBUG(this->get_logger(), "(rotate) Goal angle: %.2f",
                  goal_angle * 180 / PI_);
+    RCLCPP_DEBUG(this->get_logger(), "(rotate) Difference from goal: %.2f",
+                 (goal_angle - goal_norm_angle_rad) * 180 / PI_);
     // end DEBUG
 
     // Necessary code duplication to avoid inaccuracy
     // depending on the direction of rotation.
     // Notice the condition in the while loops.
-    rclcpp::Rate rate(10);     // 10 Hz
-    const int FB_DIVISOR = 10; // 10 for 1 Hz feedback
+    rclcpp::Rate rate(EXEC_LOOP_RATE); // 10 Hz
     int feedback_counter = 0;
     if (goal_angle > 0) {
       while (rclcpp::ok() &&
@@ -201,7 +213,7 @@ private:
         }
 
         // send feedback
-        if (feedback_counter % FB_DIVISOR == 0) {
+        if (feedback_counter % FEEDBACK_DIVISOR == 0) {
           Pose2D pose;
           pose.x = odom_data_.pose.pose.position.x;
           pose.y = odom_data_.pose.pose.position.y;
@@ -243,7 +255,7 @@ private:
         }
 
         // send feedback
-        if (feedback_counter % FB_DIVISOR == 0) {
+        if (feedback_counter % FEEDBACK_DIVISOR == 0) {
           Pose2D pose;
           pose.x = odom_data_.pose.pose.position.x;
           pose.y = odom_data_.pose.pose.position.y;
@@ -269,8 +281,9 @@ private:
     vel_pub_->publish(twist_);
 
     // DEBUG
-    RCLCPP_INFO(this->get_logger(), "(rotate) Angular difference with goal: %f",
-                abs(goal_norm_angle_rad - turn_angle));
+    RCLCPP_INFO(this->get_logger(),
+                "(rotate) Angular difference from goal: %.2f",
+                abs(goal_angle - turn_angle) * 180.0 / PI_);
     // end DEBUG
 
     return true;
@@ -291,13 +304,9 @@ private:
              std::shared_ptr<GoToPose::Result> result,
              std::shared_ptr<GoToPose::Feedback> feedback) {
 
-    const double VELOCITY = 0.2;
-    const double LINEAR_TOLERANCE = 0.005;
+    twist_.linear.x = LINEAR_VELOCITY;
 
-    twist_.linear.x = VELOCITY;
-
-    rclcpp::Rate rate(10);     // 10 Hz
-    const int FB_DIVISOR = 10; // 10 for 1 Hz feedback
+    rclcpp::Rate rate(EXEC_LOOP_RATE); // 10 Hz
     int feedback_counter = 0;
 
     double start_x = odom_data_.pose.pose.position.x, dx;
@@ -331,7 +340,7 @@ private:
       }
 
       // send feedback
-      if (feedback_counter % FB_DIVISOR == 0) {
+      if (feedback_counter % FEEDBACK_DIVISOR == 0) {
         Pose2D pose;
         pose.x = odom_data_.pose.pose.position.x;
         pose.y = odom_data_.pose.pose.position.y;
@@ -420,16 +429,18 @@ private:
     double robot_angle_to_goal = goal_dir_world - get_current_yaw();
     double norm_robot_angle_to_goal = normalize_angle(robot_angle_to_goal);
 
+    // DEBUG
     RCLCPP_DEBUG(this->get_logger(), "delta_y = %f", delta_y);
     RCLCPP_DEBUG(this->get_logger(), "delta_x = %f", delta_x);
     RCLCPP_DEBUG(this->get_logger(),
-                 "Goal direction = atan2(dy, dx) = %f (world frame)",
+                 "Goal direction (world frame) = atan2(dy, dx) = %.2f ",
                  goal_dir_world * 180 / PI_);
     RCLCPP_DEBUG(this->get_logger(),
-                 "Target robot yaw = atan2(dy, dx) = %f (robot frame)",
+                 "Target robot yaw (robot frame) = atan2(dy, dx) = %.2f",
                  robot_angle_to_goal * 180.0 / PI_);
-    RCLCPP_DEBUG(this->get_logger(), "Norm robot yaw = %f",
+    RCLCPP_DEBUG(this->get_logger(), "Norm robot yaw (robot frame) = %.2f",
                  norm_robot_angle_to_goal * 180.0 / PI_);
+    // end DEBUG
 
     // 3. Rotate toward goal
     bool rotation_1_res = rotate(norm_robot_angle_to_goal, Frame::ROBOT,
