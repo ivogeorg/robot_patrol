@@ -88,7 +88,8 @@ A turtlebot3 patrolling the simulated and real robot pen/polygon. Patrolling mea
          ros2 launch robot_patrol main.launch.py
          ```
    3. Screenshots
-   4. Implementation notes
+      ![Patrol with direction service](assets/turtlebot-lab-dir-svc.png)  
+   5. Implementation notes
       1. For custom messages that are (to be) generated in the same package where they will be used in source code, the following need to be added to the `CMakeLists.txt` file:
          1. Explicit DEPENDENCIES line for the base message(s) used to construct the custom interface (in this case `sensor_msgs` for `sensor_msgs/LaserScan`):
             ```
@@ -110,11 +111,39 @@ A turtlebot3 patrolling the simulated and real robot pen/polygon. Patrolling mea
             # Link against the generated interface library
             # NOTE: No keywords (PRIVATE, PUBLIC) or all keywords (can't mix)
             target_link_libraries(direction_service_node ${typesupport_target})
-            ```            
+            ```
+      2. The vanilla algorithm with fixed velocities depending on the direction service value is not robust. For that reason, the following additions were made:
+         1. Navigational awareness was added to the robot in the form of distance to obstacles in front of it.
+         2. The direction service response is used as a basis and a guideline. On the basis of it, a sector is picked to look for the direction with the farthest range.
+         3. A velocity control vector is used to adjust the linear and angular velocities depending on the proximity to obstacles in front. [Details](https://github.com/ivogeorg/robot_patrol/blob/1977ad99af42250053ddb93d7fd61e78e82f76a3/src/patrol_with_service.cpp#L91).
 3. Checkpoint 6 - Part 2 (ROS 2 Actions)
-   1. Running
-   2. Screenshots
-   3. Implementation notes
+   1. Running (Gazebo omitted)
+      1. `go_to_pose` action server
+         ```
+         cd ~/ros2_ws
+         source install/setup.bash
+         ros2 launch robot_patrol start_gotopos_action.launch.py
+         ```
+      2. Send requests from a terminal
+         ```
+         ros2 action send_goal -f /go_to_pos robot_control/action/GoToPose "goal_pos:
+           x: 0.7
+           y: 0.3
+           theta: 90.0
+         "
+         ```
+   3. Screenshots
+      | Robot at origin | Robot at (0.7, 0.3) |
+      | --- | --- |
+      | ![Robot at origin](assets/turtlebot-lab-gotopos-2.png) | ![Robot at (0.7, 0.5)](assets/turtlebot-lab-gotopos-1.png) |
+   4. Implementation notes
+      1. The action server sends feedback twice a second.
+      2. The `theta` parameter is in the world frame and is in degrees in both the request and the feedbacks.
+      3. The goal is achieved in three steps:
+         1. Rotate toward the goal.
+         2. Go forward the distance to the goal.
+         3. Rotate to `theta` in the world frame.
+      4. Inaccuracies in the rotation cause the robot to go to an approximation to the goal coordinates. Due to these inaccuracies, the second step is tracking distance rather than coordinates. If there is even a small rotation error (by 1-2 degrees), the robot's coordinate-based condition would never trigger to stop it.
 
 
 #### Laser scan orientation and parameterization
