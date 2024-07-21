@@ -100,11 +100,23 @@ private:
   // ray with the farthest range in the sector
   // returned from the direction service {"left",
   // "front", "right"}
+
+  // TODO: Make a complete lap of the environment
+
+  // Original:
+//   double range_min;
+//   const std::vector<std::tuple<double, double, double>> vel_ctrl{
+//       {6.0, 0.08, 1.0},
+//       {3.0, 0.04, 1.5},
+//       {1.5, 0.02, 2.0},
+//   };
+
+  // Tuning for goal
   double range_min;
   const std::vector<std::tuple<double, double, double>> vel_ctrl{
-      {6.0, 0.08, 1.0},
-      {3.0, 0.04, 1.5},
-      {1.5, 0.02, 2.0},
+      {5.95, 0.095, 0.85},
+      {4.95, 0.055, 1.25},
+      {3.95, 0.025, 2.55},
   };
 
   // Misc. parameters
@@ -436,10 +448,10 @@ void Patrol::adjust_velocities(double linear_base, double angular_base) {
 
   // how close are obstacles in front
   // fanaout to smooth out inf values
-  double front_dist = 0.0;
+  double front_dist = 2.0;
   for (int i = front - FRONT_FANOUT; i <= front + FRONT_FANOUT; ++i) {
     if (!std::isinf(last_laser_.ranges[i]) &&
-        last_laser_.ranges[i] > front_dist)
+        last_laser_.ranges[i] < front_dist)
       front_dist = last_laser_.ranges[i];
   }
 
@@ -455,7 +467,8 @@ void Patrol::adjust_velocities(double linear_base, double angular_base) {
     cmd_vel_msg_.angular.z = std::get<2>(vel_ctrl[0]) * angular_base;
   } else {
     cmd_vel_msg_.linear.x = linear_base;
-    cmd_vel_msg_.angular.z = angular_base;
+    // cmd_vel_msg_.angular.z = angular_base;
+    cmd_vel_msg_.angular.z = 0.0;
   }
 }
 
