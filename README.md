@@ -89,7 +89,7 @@ A turtlebot3 patrolling the simulated and real robot pen/polygon. Patrolling mea
          ```
    3. Screenshots
       ![Patrol with direction service](assets/turtlebot-lab-dir-svc.png)  
-   5. Implementation notes
+   4. Implementation notes
       1. For custom messages that are (to be) generated in the same package where they will be used in source code, the following need to be added to the `CMakeLists.txt` file:
          1. Explicit DEPENDENCIES line for the base message(s) used to construct the custom interface (in this case `sensor_msgs` for `sensor_msgs/LaserScan`):
             ```
@@ -116,6 +116,10 @@ A turtlebot3 patrolling the simulated and real robot pen/polygon. Patrolling mea
          1. Navigational awareness was added to the robot in the form of distance to obstacles in front of it.
          2. The direction service response is used as a basis and a guideline. On the basis of it, a sector is picked to look for the direction with the farthest range.
          3. A velocity control vector is used to adjust the linear and angular velocities depending on the proximity to obstacles in front. [Details](https://github.com/ivogeorg/robot_patrol/blob/1977ad99af42250053ddb93d7fd61e78e82f76a3/src/patrol_with_service.cpp#L91).
+   5. There is a clear disparity between the dynamics of the simulator and that of the lab. 
+      1. For the same angular velocity values, the lab robot turns faster and therefore makes a larger arc.
+      2. The angular velocities were tuned per environment, in `parametrize_laser_scanner`, as this is the only sure criterion to tell the lab from the simulator.
+      3. In particular, the angular velicities were decreased by 0.5 for the _lab_ from the values fine-tuned for the _simulator_, and also the obstacle detection distances for the _lab_ were decreased by 1.0.
 3. Checkpoint 6 - Part 2 (ROS 2 Actions)
    1. Running (Gazebo omitted)
       1. `go_to_pose` action server

@@ -113,11 +113,17 @@ private:
 
   // Tuning for goal
   double range_min;
-  const std::vector<std::tuple<double, double, double>> vel_ctrl{
+  const std::vector<std::tuple<double, double, double>> vel_ctrl_sim{
       {5.95, 0.095, 0.85},
       {4.95, 0.055, 1.25},
       {3.95, 0.025, 2.55},
   };
+  const std::vector<std::tuple<double, double, double>> vel_ctrl_lab{
+      {4.95, 0.095, 0.35},
+      {3.95, 0.065, 0.75},
+      {2.95, 0.035, 1.50},
+  };
+  std::vector<std::tuple<double, double, double>> vel_ctrl;
 
   // Misc. parameters
   const double FLOAT_COMPARISON_TOLERANCE = 1e-9;
@@ -397,6 +403,10 @@ void Patrol::parametrize_laser_scanner(LaserScan &scan_data) {
   RCLCPP_DEBUG(this->get_logger(), "left_end - left_start - 1 = %d",
                left_end - left_start - 1);
   // end DEBUG
+
+  // Assign tuned values for vel_ctrl for sim or lab
+  // Sim: 660. Lab: 720.
+  vel_ctrl = (static_cast<int>(scan_data.ranges.size()) < 700) ? vel_ctrl_sim : vel_ctrl_lab;
 
   laser_scanner_parametrized_ = true;
 }
